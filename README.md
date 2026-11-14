@@ -131,23 +131,29 @@ FreeLLM is a non-commercial hobby project. It is built on the work of these proj
 
 ### Models
 
-Model files are converted by MLC AI and downloaded from [Hugging Face (mlc-ai)](https://huggingface.co/mlc-ai). FreeLLM doesn't host, change or train any model. **Each model has its own licence.** Tap "Source & license ↗" on a model card, or check the original model page, before relying on it.
+Model files are converted by MLC AI and downloaded from [Hugging Face (mlc-ai)](https://huggingface.co/mlc-ai). FreeLLM doesn't host, change or train any model. **Each model has its own licence**, set by its original makers. Tap "Source & license ↗" on a model card to read it.
 
-| Makers | Families | Typical licence (check each model) |
+The table below was checked on **13 Nov 2026** against the licence each original model declares on Hugging Face, for every chat model in WebLLM's catalogue at that time.
+
+| Makers | Families in WebLLM | Licence (from the original model page) |
 |---|---|---|
-| [Meta](https://huggingface.co/meta-llama) | Llama 2 / 3 / 3.1 / 3.2 | Llama Community License |
-| [Alibaba Qwen](https://huggingface.co/Qwen) | Qwen 2 / 2.5 / 3 | Apache-2.0 for most; some sizes use the Qwen licence |
-| [Microsoft](https://huggingface.co/microsoft) | Phi | MIT |
-| [Google](https://huggingface.co/google) | Gemma | Gemma Terms of Use |
-| [Mistral AI](https://huggingface.co/mistralai) | Mistral, Ministral | Apache-2.0 for the open models |
-| [Hugging Face](https://huggingface.co/HuggingFaceTB) | SmolLM / SmolLM2 | Apache-2.0 |
-| [DeepSeek](https://huggingface.co/deepseek-ai) | DeepSeek-R1 distills | MIT (the base model's licence also applies) |
-| [Nous Research](https://huggingface.co/NousResearch) | Hermes | Follows the base model (e.g. Llama) |
+| [Meta](https://huggingface.co/meta-llama) | Llama 2, Llama 3, 3.1, 3.2 | [Llama 2](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf), [Llama 3](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct), [Llama 3.1](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct) and [Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) Community Licenses (each version has its own) |
+| [Alibaba Qwen](https://huggingface.co/Qwen) | Qwen2, Qwen2-Math, Qwen2.5 (incl. Coder, Math), Qwen3, Qwen3.5 | Apache-2.0, **except Qwen2.5-3B-Instruct and Qwen2.5-Coder-3B-Instruct**: [Qwen Research License](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE) (non-commercial) |
+| [Microsoft](https://huggingface.co/microsoft) | Phi-1.5, Phi-2, Phi-3, Phi-3.5, Phi-4-mini | MIT |
+| [Google](https://huggingface.co/google) | Gemma, Gemma 2, Gemma 3, Gemma 4 | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) for Gemma 1–3; **Apache-2.0 for Gemma 4** |
+| [Mistral AI](https://huggingface.co/mistralai) | Mistral 7B, Ministral 3 | Apache-2.0 |
+| [Hugging Face](https://huggingface.co/HuggingFaceTB) | SmolLM2 | Apache-2.0 |
+| [DeepSeek](https://huggingface.co/deepseek-ai) | DeepSeek-R1-Distill (Llama 8B, Qwen 7B) | MIT; the Llama-based one is also under the Llama 3.1 licence, as its model card notes |
+| [Nous Research](https://huggingface.co/NousResearch) | Hermes 2 Pro, Hermes 2 Theta, Hermes 3 | Llama 3 licence for the Llama-based ones; Apache-2.0 for Hermes 2 Pro Mistral. Hermes 2 Theta declares Apache-2.0 but is built on Llama 3, so Llama 3's terms apply too |
+| [Teknium](https://huggingface.co/teknium) | OpenHermes 2.5 Mistral | Apache-2.0 |
+| [Maxime Labonne](https://huggingface.co/mlabonne) | NeuralHermes 2.5 Mistral | Apache-2.0 |
+| [Allen Institute for AI (Ai2)](https://huggingface.co/allenai) | OLMo 2 | Apache-2.0 |
 | [TinyLlama](https://huggingface.co/TinyLlama) | TinyLlama | Apache-2.0 |
-| [Together AI](https://huggingface.co/togethercomputer) | RedPajama | Apache-2.0 |
-| [Stability AI](https://huggingface.co/stabilityai) | StableLM | Varies (some are non-commercial) |
-| [WizardLM](https://huggingface.co/WizardLMTeam) | WizardMath | Follows the base model |
-| [Allen Institute for AI (Ai2)](https://huggingface.co/allenai) | OLMo | Apache-2.0 |
+| [Together AI](https://huggingface.co/togethercomputer) | RedPajama-INCITE | Apache-2.0 |
+| [Stability AI](https://huggingface.co/stabilityai) | StableLM 2 Zephyr 1.6B | [Stability AI Non-Commercial Research Community License](https://huggingface.co/stabilityai/stablelm-2-zephyr-1_6b) |
+| [WizardLM](https://huggingface.co/WizardLMTeam) | WizardMath 7B v1.1 | No licence declared on its model page; it's built on Mistral 7B (Apache-2.0) |
+
+FreeLLM is free and non-commercial, which fits every licence above. If you reuse FreeLLM commercially, avoid the non-commercial models (the two Qwen2.5 3B models and StableLM 2) and follow Meta's and Google's terms.
 
 The model list comes live from WebLLM, so models may be added or removed over time.
 

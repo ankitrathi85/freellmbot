@@ -288,7 +288,9 @@ function quant(id) { const m = id.match(/q\d+f\d+(_\d)?/); return m ? m[0] : "";
 function needsF16(id) { return /q\d+f16/.test(id); }
 // Who originally made each model family (checked in order; most specific first)
 const VENDORS = [
-  [/^hermes|openhermes|neuralhermes/i, "Nous Research"],
+  [/^openhermes/i, "Teknium"],
+  [/^neuralhermes/i, "Maxime Labonne"],
+  [/^hermes/i, "Nous Research"],
   [/^deepseek/i, "DeepSeek"],
   [/^tinyllama/i, "TinyLlama (community)"],
   [/^llama/i, "Meta"],
