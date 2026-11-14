@@ -6,7 +6,7 @@
 
 ![FreeLLM running Llama 3.2 1B in the browser: device check, model library and a chat answering a coding question](docs/screenshot.png)
 
-FreeLLM downloads open-source language models (Llama, Qwen, Phi, Gemma, Mistral and more) into your browser once, then runs them on your own GPU with WebGPU. Your chats, memory and attached files stay on your device. The whole app is a single static `index.html` file hosted for free on GitHub Pages.
+FreeLLM downloads open-source language models (Llama, Qwen, Phi, Gemma, Mistral and more) into your browser once, then runs them on your own GPU with WebGPU. Your chats, memory and attached files stay on your device. The whole app is one static `index.html` file (plus a small offline helper and icons), hosted for free on GitHub Pages.
 
 ---
 
@@ -21,6 +21,7 @@ FreeLLM downloads open-source language models (Llama, Qwen, Phi, Gemma, Mistral 
 - **🔊 Read aloud.** Natural-sounding voices (Kokoro) are generated in the browser, and you can download them as WAV.
 - **Saved chats.** Chats are kept in your browser. You can export them as JSON or Markdown and import them on another device.
 - **Stays responsive.** The language model and the voice model each run in their own Web Worker, so the page doesn't freeze while they work.
+- **Install it like an app, use it offline.** FreeLLM is a PWA (Progressive Web App): add it to your home screen or dock and it opens in its own window. After one visit, the app opens without internet, and models you've downloaded keep working.
 
 ## How it works
 
@@ -59,6 +60,7 @@ flowchart LR
 | Attached files and their text | **Only when 🌐 is on:** the search query, sent to the web sources listed below |
 | Memory notes | **Only when 🌐 is on:** the address of any link you paste in a message (read through Jina Reader) |
 | Voice audio | |
+| The offline copy of the app (kept by `sw.js`) | |
 | All AI processing | |
 
 - There is no backend, no analytics, no cookies and no account.
@@ -66,6 +68,7 @@ flowchart LR
 - Pages from search results are fetched through Jina Reader, so Jina sees which URLs are read.
 - DuckDuckGo Instant Answers is loaded through JSONP (a script tag), which is the only way DuckDuckGo allows browser access.
 - Turn 🌐 off, or switch off individual sources in "Web sources", to stay fully offline.
+- The offline helper (`sw.js`) only saves the app's own files and its JavaScript libraries. It doesn't read, send or store your chats, and it never touches model downloads or web searches.
 
 ## Browser requirements
 
@@ -88,11 +91,13 @@ npx serve .
 
 The VS Code **Live Server** extension works too.
 
+The offline helper always fetches the newest files when you're online, so your edits show up on a normal reload. To remove it while testing, use DevTools → **Application** → **Service workers** → **Unregister**.
+
 > Models are cached **per origin** (site address). A model downloaded on `localhost:3000` must be downloaded again on `localhost:5500` or on the live site.
 
 ## Deploy to GitHub Pages
 
-1. Create a public repo named `freellmbot` on GitHub and push `index.html`, `README.md` and `LICENSE` to the `main` branch.
+1. Create a public repo named `freellmbot` on GitHub and push all the files (`index.html`, `sw.js`, `manifest.webmanifest`, `icons/`, `docs/`, `README.md`, `LICENSE`) to the `main` branch.
 2. In the repo, go to **Settings → Pages**.
 3. Under **Build and deployment**, choose **Source: Deploy from a branch**, **Branch: `main`**, folder **`/ (root)`**, and save.
 4. After a minute or two, the site is live at `https://ankitrathi85.github.io/freellmbot/`.

@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FreeLLM — Free private AI chat in your browser</title>
 <meta name="description" content="Download free open-source AI models into your browser and chat with them offline. No account, no payment, nothing leaves your device.">
+<!-- Installable app (PWA): name, icons and colours for the home screen / dock -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="FreeLLM">
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
@@ -1622,6 +1628,22 @@ $("compareOn").onchange = () => { if ($("compareOn").checked && !$("compareModel
 $("compareModel").onchange = () => { $("compareOn").checked = !!$("compareModel").value; };
 $("composer").onsubmit = e => { e.preventDefault(); const t = $("input").value.trim(); if (!t) return; $("input").value = ""; send(t); };
 $("input").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("composer").requestSubmit(); } };
+
+// ---------- Offline app (PWA) ----------
+// sw.js keeps a copy of this page and its libraries so FreeLLM opens without internet. It never stores
+// model files (WebLLM caches those itself). Service workers need HTTPS or localhost.
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  const startOffline = async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("sw.js");
+      await navigator.serviceWorker.ready;
+      // Libraries loaded before the worker was running: ask it to keep a copy of those too.
+      const urls = ["https://esm.run/@mlc-ai/web-llm", ...performance.getEntriesByType("resource").map(r => r.name)];
+      reg.active?.postMessage({ type: "cache-libs", urls });
+    } catch (e) { console.warn("Offline mode isn't available here", e); }
+  };
+  document.readyState === "complete" ? startOffline() : addEventListener("load", startOffline);
+}
 
 try { const v = localStorage.getItem("freellm.voice"); if (v) $("voice").value = v; } catch { }
 $("voice").onchange = () => { try { localStorage.setItem("freellm.voice", $("voice").value); } catch { } };
