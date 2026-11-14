@@ -215,7 +215,9 @@
       <div class="progress" id="progress">
         <div class="bar"><i id="pbar"></i></div>
         <div class="ptext" id="ptext"></div>
+        <button type="button" id="cancelLoad" hidden style="margin-top:6px">Cancel loading</button>
       </div>
+      <div class="small" id="busyNote" hidden style="margin-top:8px;color:var(--warn)"></div>
       <div class="models" id="models"><div class="small">Loading model list…</div></div>
     </div>
 
@@ -403,6 +405,9 @@ function renderModels() {
   $("countLabel").textContent = `${list.length} of ${groups.length} models shown`;
   if (!list.length) { $("models").innerHTML = `<div class="small">No models match. Try a different size or raise the memory limit.</div>`; return; }
 
+  // Disabled buttons explain themselves on hover/long-press.
+  const busyTitle = `title="${esc((state.busyReason || "Busy…") + " Please wait.")}"`;
+  const busyAttr = state.busy ? `disabled ${busyTitle}` : "";
   $("models").innerHTML = list.map(m => {
     const id = m.model_id, c = compat(m), cached = state.cached.has(id);
     const ctx = m.overrides?.context_window_size;
@@ -425,9 +430,9 @@ function renderModels() {
           </select><br>Same download for every option. More memory means longer chats and documents, but needs more RAM.</label>` : ""}
         <div class="actions">
           ${cached
-            ? `<button class="primary" data-use="${esc(id)}" ${state.busy ? "disabled" : ""}>${id === state.primaryId ? "In use" : "Chat"}</button>
-               <button class="danger" data-del="${esc(id)}" ${state.busy ? "disabled" : ""}>Delete</button>`
-            : `<button data-dl="${esc(id)}" ${state.busy || c.level === "bad" ? "disabled" : ""}>Download</button>`}
+            ? `<button class="primary" data-use="${esc(id)}" ${busyAttr}>${id === state.loadingId ? "Loading…" : id === state.primaryId ? "In use" : "Chat"}</button>
+               <button class="danger" data-del="${esc(id)}" ${busyAttr}>Delete</button>`
+            : `<button data-dl="${esc(id)}" ${state.busy || c.level === "bad" ? "disabled" : ""} ${state.busy ? busyTitle : ""}>${id === state.loadingId ? "Downloading…" : "Download"}</button>`}
         </div>
         <div class="small" style="margin-top:4px">${esc(id)}</div>
       </div>
@@ -480,33 +485,78 @@ function moduleWorker(code) { return new Worker(URL.createObjectURL(new Blob([co
 const LLM_WORKER = `import { WebWorkerMLCEngineHandler } from "https://esm.run/@mlc-ai/web-llm";
 const handler = new WebWorkerMLCEngineHandler();
 self.onmessage = (msg) => handler.onmessage(msg);`;
+// A load can end three ways besides success: the user presses Cancel, or progress stops for too long
+// (a stuck GPU driver or worker). Both used to leave every model button disabled until the page was reloaded.
+class LoadCancelled extends Error { constructor() { super("Loading was cancelled"); this.cancelled = true; } }
+class LoadStalled extends Error { constructor() { super("loading stopped responding"); this.stalled = true; } }
+function guardLoad(promise, quietMs) {
+  let timer, lost = false;
+  const guard = new Promise((_, rej) => {
+    state.lastProgress = Date.now();
+    state.cancelLoad = () => rej(new LoadCancelled());
+    timer = setInterval(() => { if (Date.now() - state.lastProgress > quietMs) rej(new LoadStalled()); }, 2000);
+  });
+  // If we give up but the load finishes later anyway, free that engine's GPU memory.
+  promise.then(eng => { if (lost) eng?.unload?.().catch?.(() => { }); }, () => { });
+  return Promise.race([promise, guard]).catch(e => { lost = true; throw e; })
+    .finally(() => { clearInterval(timer); state.cancelLoad = null; });
+}
+// Throw away an engine that is in an unknown state (after a cancelled or stuck load).
+function dropEngine() {
+  const eng = state.engine, inWorker = state.inWorker;
+  state.engine = null; state.activeId = null; state.primaryId = null;
+  try { state.worker?.terminate(); } catch { }   // stopping the worker frees its GPU memory
+  state.worker = null;
+  if (eng && !inWorker) Promise.resolve().then(() => eng.unload()).catch(() => { });
+}
 async function loadIntoEngine(id) {
-  if (!state.engine) {
-    const worker = moduleWorker(LLM_WORKER);
-    try {
-      state.lastProgress = Date.now();
-      let timer;
-      const stuck = new Promise((_, rej) => { timer = setInterval(() => { if (Date.now() - state.lastProgress > 60000) rej(new Error("background worker stopped responding")); }, 2000); });
-      try { state.engine = await Promise.race([webllm.CreateWebWorkerMLCEngine(worker, id, { appConfig, initProgressCallback: onProgress }), stuck]); }
-      finally { clearInterval(timer); }
-      state.inWorker = true;
-    } catch (e) {
-      try { worker.terminate(); } catch { }
-      // Very old browsers can't run module workers: fall back to the main thread (page may lag while generating).
-      console.warn("Background worker failed, using main thread", e);
-      state.engine = await webllm.CreateMLCEngine(id, { appConfig, initProgressCallback: onProgress });
-      state.inWorker = false;
+  // Downloads can sit on one big file for a while on slow connections, so allow longer without progress.
+  const quietMs = state.cached.has(id) ? 60000 : 180000;
+  // Show the progress box now: a load that hangs before its first progress update still needs a visible Cancel.
+  state.loadingId = id; $("cancelLoad").hidden = false; $("progress").style.display = "block"; renderModels();
+  try {
+    if (!state.engine) {
+      const worker = moduleWorker(LLM_WORKER);
+      try {
+        state.engine = await guardLoad(webllm.CreateWebWorkerMLCEngine(worker, id, { appConfig, initProgressCallback: onProgress }), quietMs);
+        state.worker = worker; state.inWorker = true;
+      } catch (e) {
+        try { worker.terminate(); } catch { }
+        if (e.cancelled) throw e;
+        // Very old browsers can't run module workers: fall back to the main thread (page may lag while generating).
+        console.warn("Background worker failed, using main thread", e);
+        state.engine = await guardLoad(webllm.CreateMLCEngine(id, { appConfig, initProgressCallback: onProgress }), quietMs);
+        state.inWorker = false;
+      }
+    } else {
+      try { await guardLoad(state.engine.reload(id), quietMs); }
+      catch (e) { if (e.cancelled || e.stalled) dropEngine(); throw e; }
     }
-  } else await state.engine.reload(id);
-  state.activeId = id;
+    state.activeId = id;
+  } finally {
+    state.loadingId = null; $("cancelLoad").hidden = true; renderModels();
+  }
+}
+$("cancelLoad").onclick = () => state.cancelLoad?.();
+// Short, friendly reason for a failed load.
+function loadError(e, verb) {
+  if (e?.cancelled) return `${verb} cancelled.`;
+  if (e?.stalled) return `${verb} stopped responding. Try again, or reload the page if it keeps happening.`;
+  return null;
 }
 
-function setBusy(b) { state.busy = b; renderModels(); setChatEnabled(!b && !!state.primaryId); }
+// While busy, every model button is disabled; say why on the page and in each button's tooltip.
+function setBusy(b, reason = "") {
+  state.busy = b; state.busyReason = b ? reason || "Busy…" : "";
+  $("busyNote").hidden = !b;
+  if (b) $("busyNote").textContent = `⏳ ${state.busyReason} The model buttons come back when it's done.`;
+  renderModels(); setChatEnabled(!b && !!state.primaryId);
+}
 
 async function downloadModels(ids) {
   if (state.busy || state.generating) return;
   try { await navigator.storage?.persist?.(); } catch { }
-  setBusy(true);
+  setBusy(true, ids.length > 1 ? `Downloading ${ids.length} models…` : `Downloading ${prettyName(ids[0])}…`);
   try {
     for (let i = 0; i < ids.length; i++) {
       $("ptext").textContent = `Starting ${i + 1} of ${ids.length}: ${prettyName(ids[i])}`;
@@ -519,7 +569,8 @@ async function downloadModels(ids) {
     showChatOnMobile();
   } catch (e) {
     console.error(e);
-    $("ptext").textContent = "Download failed: " + (e?.message || e) + ". The model may be too big for this device. Try a smaller one.";
+    $("ptext").textContent = e?.cancelled ? "Download cancelled. Parts that finished are kept, so it picks up from there next time."
+      : loadError(e, "Download") || "Download failed: " + (e?.message || e) + ". The model may be too big for this device. Try a smaller one.";
   }
   await refreshCache();
   setBusy(false);
@@ -537,9 +588,9 @@ function showChatOnMobile() { if (matchMedia("(max-width:900px)").matches) scrol
 async function activate(id, auto = false) {
   if (!id || state.busy || state.generating) return;
   if (id === state.activeId) { state.primaryId = id; renderActiveSelect(); renderModels(); setChatEnabled(true); if (!auto) showChatOnMobile(); return; }
-  setBusy(true);
+  setBusy(true, `Loading ${prettyName(id)}…`);
   try { await loadIntoEngine(id); state.primaryId = id; rememberModel(id); $("ptext").textContent = `${prettyName(id)} is ready.`; systemNote(`Switched to ${prettyName(id)}.`); if (!auto) showChatOnMobile(); }
-  catch (e) { $("ptext").textContent = "Couldn't load: " + (e?.message || e); }
+  catch (e) { $("ptext").textContent = loadError(e, "Loading") || "Couldn't load: " + (e?.message || e); }
   renderActiveSelect(); setBusy(false);
 }
 
@@ -551,7 +602,7 @@ function askDelete(id, btn) {
 }
 async function doDelete(id) {
   if (state.generating) return;
-  setBusy(true);
+  setBusy(true, `Deleting ${prettyName(id)}…`);
   try {
     if (state.activeId === id && state.engine) { await state.engine.unload(); state.activeId = null; }
     if (state.primaryId === id) state.primaryId = null;
@@ -802,7 +853,7 @@ async function send(text) {
   if (c.title === "New chat") c.title = text.slice(0, 40) + (text.length > 40 ? "…" : "");
   c.updated = Date.now(); c.modelId = primary; persist(); renderChatList();
   addMsg("user", esc(text));
-  state.generating = true; state.stopRequested = false; setBusy(true);
+  state.generating = true; state.stopRequested = false; setBusy(true, "The AI is replying.");
   $("sendBtn").style.display = "none"; $("stopBtn").style.display = "";
 
   let web = null;
