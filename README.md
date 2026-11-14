@@ -4,10 +4,7 @@
 
 🔗 **Live demo:** https://ankitrathi85.github.io/freellmbot/
 
-<!-- Screenshot: once the site is live, save a screenshot or GIF of a real chat as docs/screenshot.png,
-     then remove these comment markers around the line below.
-![FreeLLM screenshot](docs/screenshot.png)
--->
+![FreeLLM running Llama 3.2 1B in the browser: device check, model library and a chat answering a coding question](docs/screenshot.png)
 
 FreeLLM downloads open-source language models (Llama, Qwen, Phi, Gemma, Mistral and more) into your browser once, then runs them on your own GPU with WebGPU. Your chats, memory and attached files stay on your device. The whole app is a single static `index.html` file hosted for free on GitHub Pages.
 
