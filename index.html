@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeLLM — Free private AI chat in your browser</title>
+<meta name="description" content="Download free open-source AI models into your browser and chat with them offline. No account, no payment, nothing leaves your device.">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --text:#e8eaf0; --muted:#9aa3b2; --accent:#6ea8ff; --accent2:#3d7bf0;
+    --ok:#3ecf8e; --warn:#f5b73b; --bad:#ff6b6b; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-size:20px;margin:0}
+  header p{margin:0;color:var(--muted);font-size:14px}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#a78bfa);display:grid;place-items:center;font-weight:800;color:#0f1115}
+  main{display:grid;grid-template-columns:minmax(320px,460px) 1fr;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .panel h2{font-size:15px;margin:0 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .device{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px}
+  .device div{background:var(--panel2);border-radius:8px;padding:8px}
+  .device b{display:block;font-size:14px}
+  .banner{padding:10px 12px;border-radius:8px;font-size:14px;margin-top:10px}
+  .banner.bad{background:#3a1d22;border:1px solid #6b2a33}
+  .banner.info{background:#1a2638;border:1px solid #2c4468}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .chip{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:6px 10px;border-radius:99px;font-size:13px;cursor:pointer}
+  .chip.on{background:var(--accent2);border-color:var(--accent2)}
+  input[type=text],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 10px;font:inherit}
+  label.row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:8px 0}
+  input[type=range]{width:100%}
+  .models{display:flex;flex-direction:column;gap:8px;max-height:58vh;overflow:auto;margin-top:10px;padding-right:4px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+  .card.active{border-color:var(--accent)}
+  .card .name{font-weight:600;font-size:14px;word-break:break-word}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .tag{font-size:11px;padding:2px 7px;border-radius:99px;background:#262b36;color:var(--muted)}
+  .tag.ok{background:#173326;color:var(--ok)} .tag.warn{background:#3a2e14;color:var(--warn)} .tag.bad{background:#3a1d22;color:var(--bad)}
+  .tag.dl{background:#1a2a44;color:var(--accent)}
+  .actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#262b36;color:var(--text);padding:7px 12px;font-size:13px}
+  button.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  button.danger{color:var(--bad)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .progress{margin-top:10px;display:none}
+  .bar{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .2s}
+  .ptext{font-size:12px;color:var(--muted);margin-top:4px;word-break:break-word}
+  .chat{display:flex;flex-direction:column;min-height:70vh}
+  .chathead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chathead select{flex:1;min-width:180px}
+  .msgs{flex:1;overflow:auto;margin:12px 0;display:flex;flex-direction:column;gap:10px;padding-right:4px;max-height:62vh}
+  .msg{padding:10px 12px;border-radius:12px;max-width:88%;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
+  .msg.user{align-self:flex-end;background:var(--accent2);color:#fff;border-bottom-right-radius:4px}
+  .msg.assistant{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .msg.system{align-self:center;color:var(--muted);font-size:13px;background:none;text-align:center}
+  .msg pre{background:#0b0d11;padding:10px;border-radius:8px;overflow:auto;white-space:pre}
+  .msg code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+  .composer{display:flex;gap:8px}
+  .composer textarea{resize:none;height:52px}
+  .empty{color:var(--muted);text-align:center;margin:auto;max-width:420px;font-size:14px}
+  .small{font-size:12px;color:var(--muted)}
+  .menu{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .btnlike{display:inline-block;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#262b36;color:var(--text);padding:7px 12px;font-size:13px}
+  .memory{margin-top:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .memory textarea{height:110px;resize:vertical;margin:6px 0}
+  .docbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .doc{font-size:12px;background:#1a2a44;color:var(--accent);border-radius:99px;padding:4px 6px 4px 10px;display:flex;align-items:center;gap:6px}
+  .doc button{padding:0 6px;font-size:12px;border:none;background:none;color:var(--muted)}
+  .attach{display:grid;place-items:center;width:44px;font-size:20px;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#262b36}
+  .awrap{align-self:flex-start;max-width:88%;display:flex;flex-direction:column;gap:3px;min-width:0}
+  .awrap .msg{max-width:100%}
+  .mlabel{font-size:11px;color:var(--muted);padding-left:4px}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-self:stretch}
+  .cmp .awrap{max-width:100%}
+  @media (max-width:600px){.cmp{grid-template-columns:1fr}}
+  .mactions{display:flex;gap:4px;flex-wrap:wrap}
+  .mactions button{padding:3px 8px;font-size:12px;background:none;color:var(--muted)}
+  .mactions button:hover{color:var(--text);background:#262b36}
+  .msg pre{position:relative}
+  .codecopy{position:absolute;top:6px;right:6px;padding:2px 8px;font-size:11px}
+  .media{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px}
+  .media audio{max-width:100%;height:36px}
+  .media img{max-width:100%;border-radius:10px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;background:#555}
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)} .dot.off{background:#333}
+  .card.src{grid-template-columns:auto 1fr}
+  .attach.on{background:var(--accent2);border-color:var(--accent2)}
+  .srcs{font-size:12px;color:var(--muted);padding-left:4px}
+  .srcs a{color:var(--accent);text-decoration:none}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">F</div>
+  <div>
+    <h1>FreeLLM</h1>
+    <p>Free, private AI chat that runs entirely on your device. No account, no payment, and your messages never leave your browser.</p>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: device + model library -->
+  <section>
+    <div class="panel">
+      <h2>Your device</h2>
+      <div class="device" id="device">
+        <div><span class="small">WebGPU</span><b id="dGpu">Checking…</b></div>
+        <div><span class="small">Fast math (f16)</span><b id="dF16">…</b></div>
+        <div><span class="small">Device memory</span><b id="dRam">…</b></div>
+        <div><span class="small">Free storage</span><b id="dStore">…</b></div>
+      </div>
+      <div id="gpuBanner"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Model library</h2>
+      <input type="text" id="search" placeholder="Search models (e.g. Llama, Qwen, Phi, Gemma)">
+      <div class="chips" id="tiers"></div>
+      <label class="row" for="maxMem">Max memory I want to use: <b id="maxMemLabel" style="color:var(--text)"></b></label>
+      <input type="range" id="maxMem" min="500" max="24000" step="250">
+      <label class="row"><input type="checkbox" id="onlyFit" checked> Only show models my device can probably run</label>
+      <label class="row"><input type="checkbox" id="onlyCached"> Only show downloaded models</label>
+      <div class="actions">
+        <button class="primary" id="dlSelected" disabled>Download selected (0)</button>
+        <span class="small" id="countLabel" style="align-self:center"></span>
+      </div>
+      <div class="progress" id="progress">
+        <div class="bar"><i id="pbar"></i></div>
+        <div class="ptext" id="ptext"></div>
+      </div>
+      <div class="models" id="models"><div class="small">Loading model list…</div></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Web sources · free, no sign-up</h2>
+      <div class="small" style="line-height:1.6">Tap 🌐 next to the message box to let the AI look things up. Only your question is sent to these sources, never your chat or files.
+        <br><span class="dot ok"></span>available <span class="dot warn" style="margin-left:8px"></span>limited right now <span class="dot bad" style="margin-left:8px"></span>not working <span class="dot" style="margin-left:8px"></span>not checked yet</div>
+      <label class="row"><input type="checkbox" id="planOn" checked> Think before searching: the AI first works out what to look up (smarter, a few seconds slower)</label>
+      <div class="models" id="srcList" style="max-height:none"></div>
+      <div class="actions"><button id="srcCheck">Check availability now</button></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Where models come from</h2>
+      <div class="small" style="line-height:1.6">
+        <b>Model list:</b> the official catalog of <a href="https://github.com/mlc-ai/web-llm" target="_blank" rel="noopener">WebLLM</a> by the MLC AI team. It loads the newest version every time you open this page, so new models appear when WebLLM adds them.<br>
+        <b>Model files:</b> downloaded straight from <a href="https://huggingface.co/mlc-ai" target="_blank" rel="noopener">Hugging Face (mlc-ai)</a>, converted from the makers' official releases.<br>
+        <b>Original makers:</b> <span id="vendorList">…</span>.<br>
+        Each model has its own license. Tap "Source &amp; license" on a model to read it. This site doesn't host, change or train any model.
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: chat -->
+  <section class="panel chat">
+    <div class="chathead">
+      <span class="small">Model</span>
+      <select id="activeModel"><option value="">No model loaded. Download one first.</option></select>
+    </div>
+    <div class="chathead" style="margin-top:8px">
+      <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap"><input type="checkbox" id="compareOn"> Compare with</label>
+      <select id="compareModel" disabled><option value="">Download 2+ models to compare</option></select>
+    </div>
+    <div class="chathead" style="margin-top:8px">
+      <span class="small">Chat&nbsp;</span>
+      <select id="chatList"></select>
+      <button id="newChat">+ New</button>
+      <button id="menuBtn">More ▾</button>
+    </div>
+    <div class="menu" id="menu" hidden>
+      <button id="exportJson">Download chat (.json)</button>
+      <button id="exportMd">Download chat (.md)</button>
+      <button id="exportAll">Download all chats</button>
+      <label class="btnlike">Import chats…<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+      <button id="rememberBtn">Save this chat to memory</button>
+      <button id="memoryBtn">Memory…</button>
+      <label class="btnlike">🔊 Voice
+        <select id="voice" style="width:auto;padding:2px 4px;margin-left:4px">
+          <option value="af_heart">Heart (US, female)</option><option value="af_bella">Bella (US, female)</option>
+          <option value="am_michael">Michael (US, male)</option><option value="bf_emma">Emma (UK, female)</option>
+          <option value="bm_george">George (UK, male)</option>
+        </select></label>
+      <button id="deleteChat" class="danger">Delete this chat</button>
+    </div>
+    <div class="memory" id="memoryBox" hidden>
+      <b>Memory</b> <span class="small">Facts the AI remembers in every chat. You can edit them.</span>
+      <textarea id="memoryText" placeholder="e.g. My name is Sam. I'm learning Python. I prefer short answers."></textarea>
+      <label class="row" style="margin:0 0 6px"><input type="checkbox" id="memoryOn"> Use memory in all chats</label>
+      <div class="actions"><button class="primary" id="memorySave">Save</button><button id="memoryClose">Close</button></div>
+    </div>
+    <div class="msgs" id="msgs">
+      <div class="empty" id="emptyState">
+        <p><b>How it works</b></p>
+        <p>1. Pick a model that fits your device. Smaller models are faster, bigger ones are smarter.<br>
+        2. Download it once. It's saved in your browser.<br>
+        3. Chat for free, even offline.</p>
+        <p class="small">Tip: on phones or older laptops, start with a "Tiny" model under 1.5 GB.</p>
+      </div>
+    </div>
+    <div class="docbar" id="docBar"></div>
+    <form class="composer" id="composer">
+      <label class="attach" title="Attach documents (TXT, MD, CSV, JSON, code, PDF, Word)">📎<input type="file" id="attach" multiple hidden
+        accept=".txt,.md,.markdown,.csv,.tsv,.json,.html,.htm,.xml,.yaml,.yml,.log,.js,.ts,.py,.java,.c,.cpp,.cs,.go,.rb,.php,.sql,.css,.pdf,.docx,image/*"></label>
+      <label class="attach" id="webToggle" title="Search the web for answers (free sources)"><input type="checkbox" id="webOn" hidden>🌐</label>
+      <textarea id="input" placeholder="Type a message… (Enter to send, Shift+Enter for a new line)" disabled></textarea>
+      <button class="primary" id="sendBtn" type="submit" disabled>Send</button>
+      <button id="stopBtn" type="button" style="display:none">Stop</button>
+    </form>
+  </section>
+</main>
+
+<footer>
+  Models are open source and run locally with <a href="https://github.com/mlc-ai/web-llm" target="_blank" rel="noopener">WebLLM</a>.
+  Answers can be wrong, so check anything important.
+  <div style="margin-top:6px">
+    Made by Ankit Rathi ·
+    <a href="https://github.com/ankitrathi85/freellm" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://www.linkedin.com/in/ankitrathi85/" target="_blank" rel="noopener">LinkedIn</a> ·
+    <a href="https://github.com/ankitrathi85/freellm#credits" target="_blank" rel="noopener">Credits &amp; licences</a>
+  </div>
+</footer>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+const $ = id => document.getElementById(id);
+const appConfig = webllm.prebuiltAppConfig;
+
+// ---------- State ----------
+const state = {
+  device: {}, models: [], cached: new Set(), selected: new Set(),
+  tier: "all", busy: false, activeId: null, primaryId: null, engine: null, generating: false, stopRequested: false,
+};
+const SYSTEM_PROMPT = "You are a helpful, friendly assistant. Answer clearly and concisely.";
+
+const TIERS = [
+  { id: "all", label: "All sizes", min: 0, max: Infinity },
+  { id: "tiny", label: "Tiny < 1.5 GB", min: 0, max: 1500 },
+  { id: "small", label: "Small 1.5–3 GB", min: 1500, max: 3000 },
+  { id: "medium", label: "Medium 3–6 GB", min: 3000, max: 6000 },
+  { id: "large", label: "Large 6 GB+", min: 6000, max: Infinity },
+];
+
+// ---------- Helpers ----------
+const gb = mb => mb >= 1000 ? (mb / 1024).toFixed(1) + " GB" : Math.round(mb) + " MB";
+const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function prettyName(id) { return id.replace(/-MLC.*$/, "").replace(/-q\d+f\d+(_\d)?/, "").replace(/-/g, " "); }
+function quant(id) { const m = id.match(/q\d+f\d+(_\d)?/); return m ? m[0] : ""; }
+function needsF16(id) { return /q\d+f16/.test(id); }
+// Who originally made each model family (checked in order; most specific first)
+const VENDORS = [
+  [/^hermes|openhermes|neuralhermes/i, "Nous Research"],
+  [/^deepseek/i, "DeepSeek"],
+  [/^tinyllama/i, "TinyLlama (community)"],
+  [/^llama/i, "Meta"],
+  [/^qwen/i, "Alibaba (Qwen)"],
+  [/^phi/i, "Microsoft"],
+  [/^gemma/i, "Google"],
+  [/^(mistral|ministral)/i, "Mistral AI"],
+  [/^smollm/i, "Hugging Face"],
+  [/^redpajama/i, "Together AI"],
+  [/^stablelm/i, "Stability AI"],
+  [/^wizard/i, "WizardLM"],
+];
+function vendor(id) { const v = VENDORS.find(([re]) => re.test(id)); return v ? v[1] : "Community"; }
+function sourceUrl(m) { return /^https:\/\//.test(m.model || "") ? m.model : `https://huggingface.co/mlc-ai/${m.model_id}`; }
+function renderMarkdown(text) {
+  // Minimal, safe rendering: code blocks, inline code, bold.
+  const parts = text.split(/```/);
+  return parts.map((p, i) => {
+    if (i % 2 === 1) { const body = p.replace(/^[a-zA-Z0-9+#-]*\n/, ""); return `<pre><button type="button" class="codecopy">Copy</button><code>${esc(body)}</code></pre>`; }
+    return esc(p).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  }).join("");
+}
+
+// ---------- Device detection ----------
+async function detectDevice() {
+  const d = { webgpu: false, f16: false, ram: navigator.deviceMemory || null,
+    mobile: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), freeMB: null };
+  if (navigator.gpu) {
+    try {
+      const a = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+      if (a) { d.webgpu = true; d.f16 = a.features.has("shader-f16"); }
+    } catch (e) { /* ignore */ }
+  }
+  try { const e = await navigator.storage.estimate(); d.freeMB = (e.quota - e.usage) / 1048576; } catch (e) { }
+  // Rough memory budget. Browsers hide real GPU memory, so this is a guess the user can override.
+  let budget = d.ram ? d.ram * 1024 * 0.6 : (d.mobile ? 2500 : 5000);
+  if (d.mobile) budget = Math.min(budget, 3500);
+  d.budget = Math.round(budget / 250) * 250;
+  state.device = d;
+
+  $("dGpu").textContent = d.webgpu ? "Supported ✓" : "Not available ✗";
+  $("dGpu").style.color = d.webgpu ? "var(--ok)" : "var(--bad)";
+  $("dF16").textContent = d.webgpu ? (d.f16 ? "Yes ✓" : "No (some models hidden)") : "—";
+  $("dRam").textContent = d.ram ? (d.ram >= 8 ? "8 GB or more" : d.ram + " GB") : "Unknown";
+  $("dStore").textContent = d.freeMB != null ? gb(d.freeMB) : "Unknown";
+  if (!d.webgpu) {
+    $("gpuBanner").innerHTML = `<div class="banner bad"><b>Your browser can't run AI models yet.</b><br>
+      Use the latest Chrome or Edge on a computer, Chrome on a recent Android phone, or Safari 26 or newer.
+      You can still browse the model list.</div>`;
+  } else {
+    $("gpuBanner").innerHTML = `<div class="banner info">We guessed your device can handle about <b>${gb(d.budget)}</b>.
+      If you have a gaming GPU, slide the limit higher.</div>`;
+  }
+  $("maxMem").value = d.budget;
+  updateMaxLabel();
+}
+
+// ---------- Models ----------
+function compat(m) {
+  const d = state.device, v = m.vram_required_MB || 0;
+  if (!d.webgpu) return { level: "bad", text: "Needs WebGPU" };
+  if (needsF16(m.model_id) && !d.f16) return { level: "bad", text: "Needs f16 support" };
+  if (d.freeMB != null && v > d.freeMB) return { level: "bad", text: "Not enough storage" };
+  if (v > Number($("maxMem").value)) return { level: "warn", text: "May be too big" };
+  return { level: "ok", text: "Should run" };
+}
+
+async function loadModelList() {
+  state.models = appConfig.model_list
+    .filter(m => (m.model_type ?? 0) === 0) // chat models only (skip embedding / vision)
+    .sort((a, b) => (a.vram_required_MB || 0) - (b.vram_required_MB || 0));
+  await refreshCache();
+  $("vendorList").textContent = [...new Set(state.models.map(m => vendor(m.model_id)))].sort().join(", ");
+  renderModels();
+}
+
+async function refreshCache() {
+  const results = await Promise.all(state.models.map(async m => {
+    try { return [m.model_id, await webllm.hasModelInCache(m.model_id, appConfig)]; } catch { return [m.model_id, false]; }
+  }));
+  state.cached = new Set(results.filter(r => r[1]).map(r => r[0]));
+  try { const e = await navigator.storage.estimate(); state.device.freeMB = (e.quota - e.usage) / 1048576; $("dStore").textContent = gb(state.device.freeMB); } catch { }
+  renderActiveSelect();
+}
+
+function renderTiers() {
+  $("tiers").innerHTML = TIERS.map(t => `<button class="chip ${t.id === state.tier ? "on" : ""}" data-tier="${t.id}">${t.label}</button>`).join("");
+  $("tiers").querySelectorAll(".chip").forEach(b => b.onclick = () => { state.tier = b.dataset.tier; renderTiers(); renderModels(); });
+}
+
+// Some models are listed several times with different context sizes but share the SAME downloaded files.
+// Group them into one card with a "chat memory" choice.
+const groupKey = m => m.model || m.model_id.replace(/-\d+k$/, "");
+state.variant = {};
+function modelGroups() {
+  const g = new Map();
+  for (const m of state.models) { const k = groupKey(m); if (!g.has(k)) g.set(k, []); g.get(k).push(m); }
+  for (const vs of g.values()) vs.sort((a, b) => (b.overrides?.context_window_size || 0) - (a.overrides?.context_window_size || 0));
+  return [...g.values()];
+}
+function pickVariant(vs) {
+  const k = groupKey(vs[0]);
+  return vs.find(v => v.model_id === state.variant[k]) || vs.find(v => v.model_id === state.primaryId)
+    || vs.find(v => compat(v).level === "ok") || vs[vs.length - 1];
+}
+function renderModels() {
+  const q = $("search").value.trim().toLowerCase();
+  const tier = TIERS.find(t => t.id === state.tier);
+  const onlyFit = $("onlyFit").checked, onlyCached = $("onlyCached").checked;
+  const groups = modelGroups(), variantsOf = new Map();
+  const list = groups.map(vs => { const m = pickVariant(vs); variantsOf.set(m.model_id, vs); return m; }).filter(m => {
+    const v = m.vram_required_MB || 0;
+    if (v < tier.min || v >= tier.max) return false;
+    if (q && !(m.model_id + " " + vendor(m.model_id)).toLowerCase().includes(q)) return false;
+    if (onlyCached && !state.cached.has(m.model_id)) return false;
+    if (onlyFit && compat(m).level !== "ok" && !state.cached.has(m.model_id)) return false;
+    return true;
+  });
+  $("countLabel").textContent = `${list.length} of ${groups.length} models shown`;
+  if (!list.length) { $("models").innerHTML = `<div class="small">No models match. Try a different size or raise the memory limit.</div>`; return; }
+
+  $("models").innerHTML = list.map(m => {
+    const id = m.model_id, c = compat(m), cached = state.cached.has(id);
+    const ctx = m.overrides?.context_window_size;
+    return `<div class="card ${id === state.primaryId ? "active" : ""}">
+      <input type="checkbox" data-sel="${esc(id)}" ${state.selected.has(id) ? "checked" : ""} ${cached || c.level === "bad" ? "disabled" : ""} aria-label="Select ${esc(id)}">
+      <div>
+        <div class="name">${esc(prettyName(id))}</div>
+        <div class="small">by <b>${esc(vendor(id))}</b> · <a href="${esc(sourceUrl(m))}" target="_blank" rel="noopener">Source &amp; license ↗</a></div>
+        <div class="meta">
+          <span class="tag">${gb(m.vram_required_MB || 0)}</span>
+          ${quant(id) ? `<span class="tag">${quant(id)}</span>` : ""}
+          ${ctx ? `<span class="tag">${ctx.toLocaleString()} ctx</span>` : ""}
+          ${m.low_resource_required ? `<span class="tag ok">Light</span>` : ""}
+          <span class="tag ${c.level}">${c.text}</span>
+          ${cached ? `<span class="tag dl">Downloaded ✓</span>` : ""}
+        </div>
+        ${variantsOf.get(id).length > 1 ? `<label class="small" style="display:block;margin-top:6px">Chat memory:
+          <select data-var="${esc(groupKey(m))}" style="width:auto;padding:3px 6px;margin-left:4px">
+            ${variantsOf.get(id).map(v => `<option value="${esc(v.model_id)}" ${v.model_id === id ? "selected" : ""}>${(v.overrides?.context_window_size || 0).toLocaleString()} tokens · ${gb(v.vram_required_MB || 0)}</option>`).join("")}
+          </select><br>Same download for every option. More memory means longer chats and documents, but needs more RAM.</label>` : ""}
+        <div class="actions">
+          ${cached
+            ? `<button class="primary" data-use="${esc(id)}" ${state.busy ? "disabled" : ""}>${id === state.primaryId ? "In use" : "Chat"}</button>
+               <button class="danger" data-del="${esc(id)}" ${state.busy ? "disabled" : ""}>Delete</button>`
+            : `<button data-dl="${esc(id)}" ${state.busy || c.level === "bad" ? "disabled" : ""}>Download</button>`}
+        </div>
+        <div class="small" style="margin-top:4px">${esc(id)}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  $("models").querySelectorAll("[data-sel]").forEach(cb => cb.onchange = () => {
+    cb.checked ? state.selected.add(cb.dataset.sel) : state.selected.delete(cb.dataset.sel); updateSelectedBtn();
+  });
+  $("models").querySelectorAll("[data-var]").forEach(sel => sel.onchange = () => { state.variant[sel.dataset.var] = sel.value; renderModels(); });
+  $("models").querySelectorAll("[data-dl]").forEach(b => b.onclick = () => downloadModels([b.dataset.dl]));
+  $("models").querySelectorAll("[data-use]").forEach(b => b.onclick = () => activate(b.dataset.use));
+  $("models").querySelectorAll("[data-del]").forEach(b => b.onclick = () => askDelete(b.dataset.del, b));
+  updateSelectedBtn();
+}
+
+function updateSelectedBtn() {
+  const n = state.selected.size;
+  $("dlSelected").textContent = `Download selected (${n})`;
+  $("dlSelected").disabled = !n || state.busy;
+}
+function updateMaxLabel() { $("maxMemLabel").textContent = gb(Number($("maxMem").value)); }
+
+function renderActiveSelect() {
+  const sel = $("activeModel");
+  const cached = state.models.filter(m => state.cached.has(m.model_id));
+  const opt = (m, cur) => `<option value="${esc(m.model_id)}" ${m.model_id === cur ? "selected" : ""}>${esc(prettyName(m.model_id))} · ${(m.overrides?.context_window_size || 0).toLocaleString()} tokens (${gb(m.vram_required_MB || 0)})</option>`;
+  sel.innerHTML = cached.length
+    ? `<option value="">Choose a downloaded model…</option>` + cached.map(m => opt(m, state.primaryId)).join("")
+    : `<option value="">No model downloaded yet</option>`;
+  const cmp = $("compareModel"), cur = cmp.value;
+  const others = cached.filter(m => m.model_id !== state.primaryId);
+  cmp.innerHTML = others.length
+    ? `<option value="">Pick a second model…</option>` + others.map(m => opt(m, cur)).join("")
+    : `<option value="">Download 2+ models to compare</option>`;
+  cmp.disabled = !others.length;
+  if (!others.length) $("compareOn").checked = false;
+}
+
+// ---------- Engine ----------
+function onProgress(r) {
+  state.lastProgress = Date.now();
+  $("progress").style.display = "block";
+  $("pbar").style.width = Math.round((r.progress || 0) * 100) + "%";
+  $("ptext").textContent = r.text || "";
+}
+
+// Run the AI model in a background worker so the page never freezes while it thinks.
+function moduleWorker(code) { return new Worker(URL.createObjectURL(new Blob([code], { type: "text/javascript" })), { type: "module" }); }
+const LLM_WORKER = `import { WebWorkerMLCEngineHandler } from "https://esm.run/@mlc-ai/web-llm";
+const handler = new WebWorkerMLCEngineHandler();
+self.onmessage = (msg) => handler.onmessage(msg);`;
+async function loadIntoEngine(id) {
+  if (!state.engine) {
+    const worker = moduleWorker(LLM_WORKER);
+    try {
+      state.lastProgress = Date.now();
+      let timer;
+      const stuck = new Promise((_, rej) => { timer = setInterval(() => { if (Date.now() - state.lastProgress > 60000) rej(new Error("background worker stopped responding")); }, 2000); });
+      try { state.engine = await Promise.race([webllm.CreateWebWorkerMLCEngine(worker, id, { appConfig, initProgressCallback: onProgress }), stuck]); }
+      finally { clearInterval(timer); }
+      state.inWorker = true;
+    } catch (e) {
+      try { worker.terminate(); } catch { }
+      // Very old browsers can't run module workers: fall back to the main thread (page may lag while generating).
+      console.warn("Background worker failed, using main thread", e);
+      state.engine = await webllm.CreateMLCEngine(id, { appConfig, initProgressCallback: onProgress });
+      state.inWorker = false;
+    }
+  } else await state.engine.reload(id);
+  state.activeId = id;
+}
+
+function setBusy(b) { state.busy = b; renderModels(); setChatEnabled(!b && !!state.primaryId); }
+
+async function downloadModels(ids) {
+  if (state.busy || state.generating) return;
+  try { await navigator.storage?.persist?.(); } catch { }
+  setBusy(true);
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      $("ptext").textContent = `Starting ${i + 1} of ${ids.length}: ${prettyName(ids[i])}`;
+      await loadIntoEngine(ids[i]);
+      state.cached.add(ids[i]); state.selected.delete(ids[i]);
+    }
+    state.primaryId = state.activeId; rememberModel(state.primaryId);
+    $("ptext").textContent = `Done! ${prettyName(state.activeId)} is ready to chat.`;
+    systemNote(`Loaded ${prettyName(state.activeId)}. Say hi!`);
+  } catch (e) {
+    console.error(e);
+    $("ptext").textContent = "Download failed: " + (e?.message || e) + ". The model may be too big for this device. Try a smaller one.";
+  }
+  await refreshCache();
+  setBusy(false);
+}
+
+function rememberModel(id) { try { localStorage.setItem("freellm.lastModel", id); } catch { } }
+async function activate(id) {
+  if (!id || state.busy || state.generating) return;
+  if (id === state.activeId) { state.primaryId = id; renderActiveSelect(); renderModels(); setChatEnabled(true); return; }
+  setBusy(true);
+  try { await loadIntoEngine(id); state.primaryId = id; rememberModel(id); $("ptext").textContent = `${prettyName(id)} is ready.`; systemNote(`Switched to ${prettyName(id)}.`); }
+  catch (e) { $("ptext").textContent = "Couldn't load: " + (e?.message || e); }
+  renderActiveSelect(); setBusy(false);
+}
+
+// Inline two-step delete (confirm() is blocked in some frames)
+function askDelete(id, btn) {
+  if (btn.dataset.confirm) return doDelete(id);
+  btn.dataset.confirm = "1"; btn.textContent = "Tap again to delete";
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.confirm; btn.textContent = "Delete"; } }, 4000);
+}
+async function doDelete(id) {
+  if (state.generating) return;
+  setBusy(true);
+  try {
+    if (state.activeId === id && state.engine) { await state.engine.unload(); state.activeId = null; }
+    if (state.primaryId === id) state.primaryId = null;
+    await webllm.deleteModelAllInfoInCache(id, appConfig);
+  } catch (e) { console.error(e); }
+  await refreshCache(); setBusy(false);
+}
+
+// ---------- Saved chats & memory (stored only in this browser) ----------
+const CHATS_KEY = "freellm.chats.v1", MEM_KEY = "freellm.memory.v1";
+const store = {
+  load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+};
+state.chats = store.load(CHATS_KEY, []);
+state.memory = store.load(MEM_KEY, { text: "", on: true });
+state.chatId = null;
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const chat = () => state.chats.find(c => c.id === state.chatId);
+
+function persist() {
+  if (!store.save(CHATS_KEY, state.chats))
+    systemNote("Browser storage is full, so this chat wasn't saved. Download your chats, then delete old ones or remove large documents.");
+}
+function newChat() {
+  const c = { id: uid(), title: "New chat", created: Date.now(), updated: Date.now(), messages: [], docs: [] };
+  state.chats.unshift(c); state.chatId = c.id; persist(); renderChatList(); renderMessages(); renderDocs();
+  return c;
+}
+function renderChatList() {
+  $("chatList").innerHTML = state.chats.map(c =>
+    `<option value="${c.id}" ${c.id === state.chatId ? "selected" : ""}>${esc(c.title)} · ${new Date(c.updated).toLocaleDateString()}</option>`).join("");
+}
+function openChat(id) { state.chatId = id; renderChatList(); renderMessages(); renderDocs(); }
+
+function renderMessages() {
+  const c = chat(); $("msgs").innerHTML = "";
+  if (!c || !c.messages.length) {
+    $("msgs").innerHTML = `<div class="empty" id="emptyState"><p><b>How it works</b></p>
+      <p>1. Pick a model that fits your device. Smaller is faster, bigger is smarter.<br>
+      2. Download it once. It's saved in your browser.<br>
+      3. Chat for free, even offline. 📎 attaches documents.</p>
+      <p class="small">Your chats are saved in this browser only. Use "More ▾" to download them or move them to another device.</p></div>`;
+    return;
+  }
+  const ms = c.messages;
+  for (let i = 0; i < ms.length; i++) {
+    const m = ms[i];
+    if (m.role === "user") addMsg("user", esc(m.content));
+    else if (ms[i + 1]?.alt) {
+      const [l, r] = addCompareRow(m.model, ms[i + 1].model);
+      setReply(l, m.content); setReply(r, ms[i + 1].content);
+      showSources(l.closest(".awrap"), m.sources); showSources(r.closest(".awrap"), ms[i + 1].sources); i++;
+    } else { const b = addAssistant(m.model); setReply(b, m.content); showSources(b.closest(".awrap"), m.sources); }
+  }
+}
+
+// ---------- Documents ----------
+const MAX_DOC_CHARS = 300000;
+let pdfjs = null;
+async function readPdf(f) {
+  if (!pdfjs) {
+    pdfjs = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.min.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.worker.min.mjs";
+  }
+  const doc = await pdfjs.getDocument({ data: await f.arrayBuffer() }).promise;
+  let out = "";
+  for (let i = 1; i <= doc.numPages; i++) {
+    const t = await (await doc.getPage(i)).getTextContent();
+    out += t.items.map(x => x.str).join(" ") + "\n\n";
+    if (out.length > MAX_DOC_CHARS) break;
+  }
+  return out;
+}
+async function readDocx(f) {
+  if (!window.mammoth) await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/mammoth@1/mammoth.browser.min.js";
+    s.onload = res; s.onerror = () => rej(new Error("couldn't load the Word reader")); document.head.appendChild(s);
+  });
+  return (await window.mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() })).value;
+}
+async function readFile(f) {
+  const ext = f.name.split(".").pop().toLowerCase();
+  if (f.type.startsWith("image/")) throw new Error("images need a vision model, which isn't supported yet. Attach text, PDF or Word files for now.");
+  if (ext === "pdf") return readPdf(f);
+  if (ext === "docx") return readDocx(f);
+  if (ext === "doc") throw new Error("old .doc files aren't supported. Save it as .docx or PDF.");
+  return f.text();
+}
+async function attachFiles(files) {
+  const c = chat() || newChat();
+  for (const f of files) {
+    try {
+      let text = (await readFile(f)).replace(/\s+\n/g, "\n").trim();
+      if (!text) { systemNote(`${f.name}: no text found. It may be a scanned image.`); continue; }
+      const cut = text.length > MAX_DOC_CHARS;
+      text = text.slice(0, MAX_DOC_CHARS);
+      c.docs.push({ id: uid(), name: f.name, text });
+      systemNote(`Attached ${f.name} (${text.length.toLocaleString()} characters${cut ? ", trimmed" : ""}). Ask me about it!`);
+    } catch (e) { systemNote(`${f.name}: ${e?.message || e}`); }
+  }
+  c.updated = Date.now(); persist(); renderDocs(); renderChatList();
+}
+function renderDocs() {
+  const c = chat();
+  $("docBar").innerHTML = (c?.docs || []).map(d =>
+    `<span class="doc">📄 ${esc(d.name)}<button data-rmdoc="${d.id}" title="Remove">✕</button></span>`).join("");
+  $("docBar").querySelectorAll("[data-rmdoc]").forEach(b => b.onclick = () => {
+    c.docs = c.docs.filter(d => d.id !== b.dataset.rmdoc); persist(); renderDocs();
+  });
+}
+
+// Fit documents into the model's small context: use everything if it fits,
+// otherwise pick the passages that best match the question (simple keyword search).
+function docContext(docs, query, budget) {
+  if (!docs.length || budget < 300) return "";
+  const full = docs.map(d => `[${d.name}]\n${d.text}`).join("\n\n");
+  if (full.length <= budget) return full;
+  const terms = new Set((query.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || []));
+  const chunks = [];
+  docs.forEach(d => { for (let i = 0; i < d.text.length; i += 1000) chunks.push({ name: d.name, i, text: d.text.slice(i, i + 1000) }); });
+  chunks.forEach((ch, n) => {
+    const low = ch.text.toLowerCase(); let s = ch.i === 0 ? 0.5 : 0;
+    terms.forEach(t => { let p = low.indexOf(t); while (p !== -1) { s++; p = low.indexOf(t, p + t.length); } });
+    ch.score = s; ch.n = n;
+  });
+  const picked = []; let used = 0;
+  for (const ch of [...chunks].sort((a, b) => b.score - a.score || a.n - b.n)) {
+    if (used + ch.text.length + 40 > budget) continue;
+    picked.push(ch); used += ch.text.length + 40;
+  }
+  return picked.sort((a, b) => a.n - b.n).map(ch => `[${ch.name}, excerpt]\n${ch.text}`).join("\n\n");
+}
+
+function contextChars() {
+  const ids = [state.primaryId, compareTarget()].filter(Boolean);
+  const sizes = ids.map(id => state.models.find(x => x.model_id === id)?.overrides?.context_window_size || 4096);
+  return Math.min(...(sizes.length ? sizes : [4096])) * 3.2; // ~chars per token, on the safe side
+}
+
+function buildPrompt(c, query, webText) {
+  const C = contextChars();
+  let budget = C * 0.75; // leave room for the reply
+  let sys = SYSTEM_PROMPT;
+  if (state.memory.on && state.memory.text.trim())
+    sys += "\n\nWhat you remember about the user from earlier chats:\n" + state.memory.text.trim().slice(0, C * 0.12);
+  budget -= sys.length;
+  sys += `\nToday's date is ${new Date().toDateString()}.`;
+  if (webText) budget -= webText.length + 400;
+  if (c.docs.length) {
+    const d = docContext(c.docs, query, budget * 0.6);
+    if (d) { sys += "\n\nThe user attached documents. Answer using them when relevant, and say if the answer isn't in them.\n\n" + d; budget -= d.length + 120; }
+  }
+  const hist = [], thread = c.messages.filter(m => !m.alt);
+  for (let i = thread.length - 1; i >= 0; i--) {
+    const m = thread[i];
+    if (m.content.length > budget) {
+      if (!hist.length) hist.unshift({ role: m.role, content: m.content.slice(-Math.max(200, budget)) });
+      break;
+    }
+    hist.unshift({ role: m.role, content: m.content }); budget -= m.content.length;
+  }
+  while (hist.length && hist[0].role !== "user") hist.shift();
+  if (webText && hist.length && hist[hist.length - 1].role === "user") {
+    const last = hist[hist.length - 1];
+    last.content = `Here are web search results from today (${new Date().toDateString()}):\n\n${webText}\n\n` +
+      `Answer the question below using these search results. They are newer than your training, so trust them over your memory. ` +
+      `Cite the numbers like [1]. Dates in results may be in another time zone, so if nothing matches the exact day the user means, ` +
+      `give the most recent relevant result and state its date. Only say you couldn't find it if the results really have nothing relevant.\n\nQuestion: ${last.content}`;
+  }
+  return [{ role: "system", content: sys }, ...hist];
+}
+
+// ---------- Chat ----------
+function setChatEnabled(on) {
+  $("input").disabled = !on; $("sendBtn").disabled = !on || state.generating;
+  $("input").placeholder = on ? "Type a message… (Enter to send, Shift+Enter for a new line)"
+    : state.generating ? "The AI is replying… (press Stop to interrupt)"
+    : state.busy ? "Loading the model… you can type once it's ready"
+    : state.cached.size ? "Pick a downloaded model (press Chat in the Model library) to start"
+    : "Download a model from the Model library to start chatting";
+}
+function addMsg(role, html) {
+  $("emptyState")?.remove();
+  const el = document.createElement("div"); el.className = "msg " + role; el.innerHTML = html;
+  $("msgs").appendChild(el); $("msgs").scrollTop = $("msgs").scrollHeight; return el;
+}
+function systemNote(t) { addMsg("system", esc(t)); }
+// Assistant bubble with the model's name above it. Returns the bubble.
+function addAssistant(modelId, parent) {
+  $("emptyState")?.remove();
+  const w = document.createElement("div"); w.className = "awrap";
+  w.innerHTML = `<div class="mlabel">🤖 ${esc(modelId ? prettyName(modelId) : "AI")}</div><div class="msg assistant"></div>
+    <div class="mactions"><button type="button" data-act="copy">📋 Copy</button><button type="button" data-act="listen">🔊 Listen</button></div>
+    <div class="media"></div><div class="srcs"></div>`;
+  (parent || $("msgs")).appendChild(w); $("msgs").scrollTop = $("msgs").scrollHeight;
+  return w.querySelector(".msg");
+}
+function addCompareRow(leftId, rightId) {
+  $("emptyState")?.remove();
+  const row = document.createElement("div"); row.className = "cmp"; $("msgs").appendChild(row);
+  return [addAssistant(leftId, row), addAssistant(rightId, row)];
+}
+function setReply(bubble, text, extraHtml = "") { bubble._raw = text; bubble.innerHTML = renderMarkdown(text) + extraHtml; }
+function compareTarget() {
+  const v = $("compareModel").value;
+  return $("compareOn").checked && v && v !== state.primaryId && state.cached.has(v) ? v : null;
+}
+
+// Stream one reply from whichever model is loaded into the bubble.
+async function generate(prompt, bubble, temperature = 0.7) {
+  let reply = "";
+  bubble.innerHTML = "<span class='small'>Thinking…</span>";
+  try {
+    const stream = await state.engine.chat.completions.create({ messages: prompt, stream: true, temperature });
+    let queued = false;
+    for await (const chunk of stream) {
+      reply += chunk.choices[0]?.delta?.content || "";
+      if (!queued) {
+        queued = true;
+        requestAnimationFrame(() => {
+          queued = false; setReply(bubble, reply);
+          const box = $("msgs"); if (box.scrollHeight - box.scrollTop - box.clientHeight < 120) box.scrollTop = box.scrollHeight; // don't yank if user scrolled up
+        });
+      }
+    }
+    setReply(bubble, reply);
+  } catch (e) {
+    console.error(e);
+    setReply(bubble, reply, (reply ? "<br>" : "") +
+      `<span style="color:var(--bad)">Error: ${esc(e?.message || String(e))}</span><br><span class="small">Try a new chat, remove large documents, or use a smaller model.</span>`);
+  }
+  return reply;
+}
+async function ensureLoaded(id, bubble) {
+  if (state.activeId === id) return;
+  bubble.innerHTML = `<span class='small'>Loading ${esc(prettyName(id))}…</span>`;
+  await loadIntoEngine(id);
+}
+
+async function send(text) {
+  if (!state.engine || !state.primaryId || state.generating) return;
+  const c = chat() || newChat();
+  const primary = state.primaryId, second = compareTarget();
+  c.messages.push({ role: "user", content: text });
+  if (c.title === "New chat") c.title = text.slice(0, 40) + (text.length > 40 ? "…" : "");
+  c.updated = Date.now(); c.modelId = primary; persist(); renderChatList();
+  addMsg("user", esc(text));
+  state.generating = true; state.stopRequested = false; setBusy(true);
+  $("sendBtn").style.display = "none"; $("stopBtn").style.display = "";
+
+  let web = null;
+  if ($("webOn").checked) {
+    const note = addMsg("system", "🧠 Understanding your question…");
+    try {
+      let plan = null;
+      if ($("planOn").checked) {
+        if (!state.activeId) await loadIntoEngine(primary);
+        plan = await planSearch(c, text);
+      }
+      if (state.stopRequested) throw new Error("stopped");
+      const planLine = plan ? `🧠 ${plan.topic === "auto" ? "Understood as" : `Topic: <b>${esc(plan.topic)}</b> ·`}${plan.queries.length ? ` searching for “${plan.queries.map(esc).join("”, “")}”` : ""}${plan.location ? ` · place: ${esc(plan.location)}` : ""}<br>` : "";
+      if (plan && !plan.search) {
+        note.innerHTML = "🧠 No web search needed for this one, so I'm answering directly.";
+      } else {
+        note.innerHTML = planLine + "🔎 Searching free web sources…";
+        const { names, results } = await webSearch(text, plan);
+        if (!names.length) note.innerHTML = planLine + "🌐 No matching web sources are available right now, so this answer uses only the model's own knowledge.";
+        else {
+          web = webContext(results, contextChars() * 0.75 * 0.55);
+          note.innerHTML = planLine + (web.used.length
+            ? `🔎 Searched ${esc(names.join(", "))} and found ${web.used.length} result${web.used.length > 1 ? "s" : ""}.
+               <details style="text-align:left;margin-top:4px"><summary>Show what was found</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(web.text)}</pre></details>`
+            : `🔎 Searched ${esc(names.join(", "))} but found nothing useful. Answering from the model's own knowledge.`);
+          const pm = state.models.find(m => m.model_id === state.primaryId);
+          if (web.used.length && (pm?.vram_required_MB || 0) < 1500)
+            note.innerHTML += `<br>💡 Tiny models often misread search results. For web answers, a 3B+ model (e.g. Llama 3.2 3B or Qwen 2.5 3B) works much better.`;
+          if (!web.used.length) web = null;
+        }
+      }
+    } catch (e) {
+      if (state.stopRequested) note.textContent = "Stopped.";
+      else note.textContent = "🌐 Web search failed: " + (e?.message || e);
+    }
+  }
+  if (state.stopRequested) {
+    c.updated = Date.now(); persist();
+    state.generating = false; $("sendBtn").style.display = ""; $("stopBtn").style.display = "none"; setBusy(false);
+    return;
+  }
+  const prompt = buildPrompt(c, text, web?.text);
+  const sources = web?.used;
+  try {
+    if (!second) {
+      const bubble = addAssistant(primary);
+      await ensureLoaded(primary, bubble);
+      const reply = await generate(prompt, bubble, web ? 0.2 : 0.7);
+      showSources(bubble.closest(".awrap"), sources);
+      if (reply) c.messages.push({ role: "assistant", content: reply, model: primary, sources });
+    } else {
+      const [left, right] = addCompareRow(primary, second);
+      const replies = {};
+      // Answer with whichever model is already loaded first, so we only switch once per message.
+      const order = state.activeId === second ? [[second, right], [primary, left]] : [[primary, left], [second, right]];
+      for (const [id, bubble] of order) {
+        if (state.stopRequested) { bubble.innerHTML = "<span class='small'>Skipped.</span>"; continue; }
+        await ensureLoaded(id, bubble);
+        replies[id] = await generate(prompt, bubble, web ? 0.2 : 0.7);
+        showSources(bubble.closest(".awrap"), sources);
+      }
+      if (replies[primary]) c.messages.push({ role: "assistant", content: replies[primary], model: primary, sources });
+      if (replies[second]) c.messages.push({ role: "assistant", content: replies[second], model: second, alt: true, sources });
+    }
+  } catch (e) {
+    console.error(e); systemNote("Couldn't load the model: " + (e?.message || e));
+  }
+  c.updated = Date.now(); persist();
+  state.generating = false; $("sendBtn").style.display = ""; $("stopBtn").style.display = "none";
+  setBusy(false); $("input").focus();
+}
+
+// ---------- Web sources: free, no sign-up, called straight from the browser ----------
+const SRC_KEY = "freellm.sources.v1";
+state.src = store.load(SRC_KEY, {});
+const today = () => new Date().toISOString().slice(0, 10);
+function srcState(id) {
+  const s = state.src[id] ||= { on: true };
+  if (s.day !== today()) { s.day = today(); s.used = 0; if (s.quota != null) s.quota = null; }
+  return s;
+}
+function saveSrc() { store.save(SRC_KEY, state.src); renderSources(); }
+function mark(id, status, note) { Object.assign(srcState(id), { status, note: note || "", at: Date.now() }); saveSrc(); }
+
+class RateLimited extends Error { constructor(m) { super(m || "rate limited"); this.rate = true; } }
+async function getRaw(url, ms = 9000, headers) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, ...(headers ? { headers } : {}) });
+    if (r.status === 429) throw new RateLimited();
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.text();
+  } catch (e) {
+    if (e.rate) throw e;
+    throw new Error(e.name === "AbortError" ? "timed out" : "blocked or offline");
+  } finally { clearTimeout(t); }
+}
+async function getJSON(url, ms) {
+  const txt = await getRaw(url, ms);
+  try { return JSON.parse(txt); } catch { throw /limit|too many|wait/i.test(txt) ? new RateLimited() : new Error("unexpected reply"); }
+}
+function jsonp(url, ms = 9000) { // DuckDuckGo only offers browser access this way
+  return new Promise((res, rej) => {
+    const cb = "__cb" + uid().replace(/\W/g, ""), s = document.createElement("script");
+    const done = () => { clearTimeout(t); delete window[cb]; s.remove(); };
+    const t = setTimeout(() => { done(); rej(new Error("timed out")); }, ms);
+    window[cb] = d => { done(); res(d); };
+    s.onerror = () => { done(); rej(new Error("blocked or offline")); };
+    s.src = url + "&callback=" + cb; document.head.appendChild(s);
+  });
+}
+const strip = h => String(h || "").replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&")
+  .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+const clip = (t, n = 700) => (t = String(t || "")).length > n ? t.slice(0, n) + "…" : t;
+const enc = encodeURIComponent;
+const WMO = { 0: "clear sky", 1: "mostly clear", 2: "partly cloudy", 3: "overcast", 45: "fog", 48: "fog", 51: "light drizzle", 53: "drizzle", 55: "heavy drizzle",
+  61: "light rain", 63: "rain", 65: "heavy rain", 66: "freezing rain", 67: "freezing rain", 71: "light snow", 73: "snow", 75: "heavy snow", 77: "snow grains",
+  80: "rain showers", 81: "rain showers", 82: "violent rain showers", 85: "snow showers", 86: "heavy snow showers", 95: "thunderstorm", 96: "thunderstorm with hail", 99: "thunderstorm with hail" };
+
+const NEWSY = /\b(news|latest|today|recent(ly)?|this week|yesterday|current(ly)?|update|happen(ed|ing)?|now|20\d\d)\b/i;
+function keyTerms(q) { return (q.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}'+#.-]*/gu) || []).filter(w => w.length > 2 && !STOP.has(w)); }
+function scoreText(text, terms) {
+  const low = text.toLowerCase(); let s = 0;
+  for (const t of terms) { let p = low.indexOf(t); while (p !== -1) { s++; p = low.indexOf(t, p + t.length); } }
+  return s;
+}
+// Pick the parts of a long article that actually mention the question's words.
+function bestPassages(text, q, n = 3, size = 450) {
+  const terms = keyTerms(q), paras = [], yr = new Date().getFullYear();
+  const recent = NEWSY.test(q) ? new RegExp(`\\b(${yr}|${yr - 1}|incumbent|current(ly)?)\\b`, "i") : null;
+  for (const para of text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 40 && !/^=+.*=+$/.test(p)))
+    for (let i = 0; i < para.length; i += size) paras.push(para.slice(i, i + size));
+  if (!paras.length) return "";
+  // reward covering *different* question words (not repeating one), plus recent facts for "current/latest" questions
+  const scored = paras.map((p, i) => {
+    const low = p.toLowerCase(), distinct = terms.filter(t => low.includes(t)).length;
+    return { p, i, s: distinct * 3 + Math.min(scoreText(p, terms), 5) * 0.3 + (i === 0 ? 1.5 : 0) + (recent && recent.test(p) ? 3 : 0) };
+  });
+  const top = scored.sort((a, b) => b.s - a.s || a.i - b.i).slice(0, n).sort((a, b) => a.i - b.i);
+  return top.map(x => x.p).join(" … ");
+}
+function cleanWikitext(l) {
+  return l.replace(/<ref[^>]*\/>|<ref[\s\S]*?<\/ref>/g, "").replace(/\{\{[^{}]*\}\}/g, "").replace(/\[\[(?:[^|\]]*\|)?([^\]]+)\]\]/g, "$1")
+    .replace(/\[https?:\/\/\S+\s([^\]]+)\]/g, "").replace(/'''?/g, "").replace(/^\*+\s*/, "").replace(/\s+/g, " ").trim();
+}
+// Team codes used inside Wikipedia's match tables ({{cr|NZ}} etc.), not for user input.
+const TEAM = { IND: "India", NZ: "New Zealand", AUS: "Australia", ENG: "England", PAK: "Pakistan", SA: "South Africa", RSA: "South Africa", SL: "Sri Lanka",
+  WI: "West Indies", BAN: "Bangladesh", AFG: "Afghanistan", IRE: "Ireland", ZIM: "Zimbabwe", NED: "Netherlands", SCO: "Scotland", NEP: "Nepal", UAE: "UAE", USA: "USA" };
+function cleanValue(v) {
+  return String(v || "").replace(/<ref[^>]*\/>|<ref[\s\S]*?<\/ref>/g, "").replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")
+    .replace(/\{\{\s*(?:cr|cr-rt|crw|crw-rt|fb|fb-rt|fbw|fbw-rt|flagicon|flag|fbaicon)\s*\|\s*([^|}]+)[^}]*\}\}/gi, (m, c) => TEAM[c.trim().toUpperCase()] || c.trim())
+    .replace(/\{\{[^{}]*\}\}/g, "").replace(/\[\[(?:[^|\]]*\|)?([^\]]+)\]\]/g, "$1").replace(/\[https?:\/\/\S+\s([^\]]+)\]/g, "$1")
+    .replace(/'''?/g, "").replace(/\s+/g, " ").trim();
+}
+// Read the match boxes (cricket and football) that Wikipedia uses on tour, league and tournament pages.
+function parseMatches(wt) {
+  const out = [], re = /\{\{\s*((?:Single-innings|Two-innings|Single-day|Limited[- ]overs)[^|\n]*cricket match|Football box(?: collapsible)?)\s*\n?/gi;
+  let m;
+  while ((m = re.exec(wt))) {
+    let depth = 0, i = m.index;
+    for (; i < wt.length; i++) {
+      if (wt.startsWith("{{", i)) { depth++; i++; } else if (wt.startsWith("}}", i)) { depth--; i++; if (!depth) break; }
+    }
+    const body = wt.slice(m.index + 2, i - 1), params = {}, parts = [];
+    let d = 0, cur = "";
+    for (let j = 0; j < body.length; j++) {
+      if (body.startsWith("{{", j) || body.startsWith("[[", j)) d++;
+      if (body.startsWith("}}", j) || body.startsWith("]]", j)) d--;
+      if (body[j] === "|" && d === 0) { parts.push(cur); cur = ""; } else cur += body[j];
+    }
+    parts.push(cur);
+    for (const p of parts.slice(1)) { const k = p.indexOf("="); if (k > 0) params[p.slice(0, k).trim().toLowerCase()] = cleanValue(p.slice(k + 1)); }
+    const hs = wt.slice(0, m.index).match(/^==+\s*([^=]+?)\s*==+\s*$/gm);
+    params.heading = hs ? hs[hs.length - 1].replace(/=/g, "").trim() : "";
+    out.push(params); re.lastIndex = i;
+  }
+  return out;
+}
+const SPORT_NOISE = /^(versus|vs\.?|v|match|matches|score|scores|scorecard|result|results|summary|detailed|details|latest|last|recent|won|win|beat|game|games|who|highlights|report|full|cricket|football|soccer|odi|odis|t20|t20i|t20is|test|tests|series|one|day|international|internationals|today|yesterday|\d{4}|\d{4}[–-]\d{2,4})$/;
+function describeMatch(x, detailed) {
+  const teams = x.score ? `${x.team1} ${x.score} ${x.team2}` : `${x.team1} ${x.score1 || ""} vs ${x.team2} ${x.score2 || ""}`;
+  const played = x.result || x.score || x.score1;
+  let line = `${x.heading ? x.heading + " " : ""}(${x.date || "date unknown"}): ${teams.replace(/\s+/g, " ").trim()} — ${x.result || (played ? "" : "not played yet")}` +
+    `${x.venue || x.stadium ? " at " + (x.venue || x.stadium) : ""}${x.motm ? ". Player of the match: " + x.motm : ""}`;
+  if (detailed && played) {
+    const extra = [
+      x.toss && `Toss: ${x.toss}`,
+      x.runs1 && `${x.team1} top scorer(s): ${x.runs1}`, x.wickets1 && `best bowling vs ${x.team1}: ${x.wickets1}`,
+      x.runs2 && `${x.team2} top scorer(s): ${x.runs2}`, x.wickets2 && `best bowling vs ${x.team2}: ${x.wickets2}`,
+      x.goals1 && `${x.team1} goals: ${x.goals1}`, x.goals2 && `${x.team2} goals: ${x.goals2}`,
+      x.rain && `Weather: ${x.rain}`, x.notes && `Notes: ${x.notes}`,
+    ].filter(Boolean).map(e => e.replace(/\.+$/, ""));
+    if (extra.length) line += ". " + extra.join(". ") + ".";
+  }
+  return line;
+}
+// when(): "always" sources run for every web question; the others only when the question looks relevant.
+const SOURCES = [
+  { id: "web", tier: 2.6, name: "Web search (Brave, via Jina Reader)", what: "Searches the whole web and reads the top pages in full. Works for any topic.",
+    limit: "About 20 reads a minute (about 4 per question); personal, non-commercial use", auto: "every web question", test: "Ontario minimum wage",
+    when: () => true,
+    async search(q, full, plan) {
+      const jina = (u, ms, fmt = "text") => getRaw("https://r.jina.ai/" + u, ms, { "X-Return-Format": fmt });
+      const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+      const query = plan?.queries?.[0] || q;
+      const md = await jina("https://search.brave.com/search?q=" + enc(query), 15000, "markdown");
+      if (/^\s*\{/.test(md) && /"code"\s*:\s*4\d\d/.test(md)) throw /429|rate/i.test(md) ? new RateLimited() : new Error("blocked by reader");
+      // Each Brave result is one link containing: site icon, breadcrumb, title, date and summary.
+      const SKIP = /(^|\.)(brave\.com|youtube\.com|youtu\.be|facebook\.com|instagram\.com|tiktok\.com|x\.com|twitter\.com|pinterest\.com)$/i;
+      const seen = new Set(), results = [];
+      // Brave has two layouts: [icon + breadcrumb + title + summary](url) and [icons + title](url) followed by the summary.
+      for (const m of md.matchAll(/\[((?:!\[[^\]]*\]\([^)]*\)\s*)+)([^\[\]]{10,700}?)\]\((https?:\/\/[^)\s]+)\)([^\[]{0,500})/g)) {
+        const url = m[3], h = host(url);
+        if (!h || SKIP.test(h) || seen.has(url)) continue;
+        seen.add(url);
+        const after = m[4].replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        results.push({ url, text: (m[2].replace(/\s+/g, " ").trim() + (after ? " — " + after : "")).slice(0, 500) });
+      }
+      if (!results.length) return [];
+      // Read up to 3 top pages in full (at most 2 from the same site), in parallel.
+      const perHost = {}, picks = [];
+      for (const r of results) { const h = host(r.url); if ((perHost[h] = (perHost[h] || 0) + 1) > 2 || /\.pdf($|\?)/i.test(r.url)) continue; picks.push(r); if (picks.length === 3) break; }
+      const pages = await Promise.all(picks.map(async r => {
+        try {
+          const t = await jina(r.url, 10000);
+          const body = t.replace(/^(Title|URL Source|Published Time|Markdown Content|Warning):.*$/gm, "").trim();
+          if (body.length < 300 || /^\s*\{"data":null/.test(t)) return null;
+          const title = (t.match(/^Title:\s*(.+)$/m) || [])[1] || host(r.url);
+          return { title: clip(strip(title), 120), url: r.url, text: `(${host(r.url)}) ` + bestPassages(body, (full || "") + " " + query, 3, 450) };
+        } catch { return null; }
+      }));
+      const list = { title: `Web search results: ${query}`, url: "https://search.brave.com/search?q=" + enc(query),
+        text: results.slice(0, 6).map(r => `- ${host(r.url)}: ${clip(r.text, 230)}`).join("\n") };
+      return [...pages.filter(Boolean), list];
+    } },
+  { id: "wikipedia", tier: 1, name: "Wikipedia", what: "Facts about people, places, history, science", limit: "No fixed limit (fair use)", auto: "every question",
+    when: () => true, test: "Toronto",
+    async search(q, full) {
+      const sr = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&srlimit=3&format=json&origin=*`);
+      const titles = (sr.query?.search || []).map(x => x.title);
+      const pages = await Promise.all(titles.map(t => getJSON(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts|info&inprop=url&explaintext=1&redirects=1&titles=${enc(t)}&format=json&origin=*`)
+        .then(d => Object.values(d.query?.pages || {})[0]).catch(() => null)));
+      return pages.filter(p => p?.extract).map(p => ({ title: p.title, url: p.fullurl || `https://en.wikipedia.org/wiki/${enc(p.title)}`,
+        text: bestPassages(p.extract, full || q, 3, 450) }));
+    } },
+  { id: "duckduckgo", tier: 1, name: "DuckDuckGo Instant Answers", what: "Quick answers, definitions, summaries", limit: "No fixed limit (fair use)", auto: "every question",
+    when: () => true, test: "Toronto",
+    async search(q) {
+      const d = await jsonp(`https://api.duckduckgo.com/?q=${enc(q)}&format=json&no_html=1&skip_disambig=1&t=freellm`), out = [];
+      const page = "https://duckduckgo.com/?q=" + enc(q);
+      if (d.Answer) out.push({ title: "Instant answer", url: page, text: strip(d.Answer) });
+      if (d.AbstractText) out.push({ title: d.Heading || q, url: d.AbstractURL || page, text: clip(d.AbstractText, 900) });
+      if (d.Definition) out.push({ title: "Definition", url: d.DefinitionURL || page, text: d.Definition });
+      (d.RelatedTopics || []).filter(t => t.Text && t.FirstURL).slice(0, 2).forEach(t => out.push({ title: clip(t.Text, 60), url: t.FirstURL, text: t.Text }));
+      return out.slice(0, 3);
+    } },
+  { id: "news", tier: 2, name: "Wikipedia Current Events", what: "Daily news summaries, updated every day", limit: "No fixed limit (fair use)",
+    auto: "news, \"latest\", \"today\"", test: "news",
+    when: t => NEWSY.test(t),
+    async search(q) {
+      const terms = keyTerms(q).filter(t => !/^(news|latest|today|recent|current|update|week|yesterday|happening)$/.test(t));
+      const sr = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc((terms.join(" ") || "events"))}%20prefix:Portal:Current_events/2&srnamespace=100&srsort=create_timestamp_desc&srlimit=4&format=json&origin=*`);
+      const days = (sr.query?.search || []).map(x => x.title).filter(t => /\d{4} \w+ \d+$/.test(t)).slice(0, 3);
+      const out = [];
+      await Promise.all(days.map(async title => {
+        const p = await getJSON(`https://en.wikipedia.org/w/api.php?action=parse&page=${enc(title)}&prop=wikitext&formatversion=2&format=json&origin=*`);
+        const items = (p.parse?.wikitext || "").split("\n").filter(l => /^\*/.test(l)).map(cleanWikitext).filter(l => l.length > 50);
+        const need = terms.length <= 3 ? terms.length : Math.ceil(terms.length * 0.6); // short questions: every word must match
+        const hits = terms.length ? items.filter(l => terms.filter(t => l.toLowerCase().includes(t)).length >= need) : items;
+        if (hits.length) out.push({ day: title, title: title.replace("Portal:Current events/", "News: "), url: `https://en.wikipedia.org/wiki/${enc(title.replace(/ /g, "_"))}`,
+          text: hits.slice(0, 5).join("\n") });
+      }));
+      return out.sort((a, b) => Date.parse(b.day.split("/").pop()) - Date.parse(a.day.split("/").pop()));
+    } },
+  { id: "bingnews", tier: 2.5, name: "Bing News (via Jina Reader)", what: "Latest headlines from hundreds of news outlets, plus the full text of the top article",
+    limit: "About 20 reads a minute; personal, non-commercial use", auto: "news, sports, \"latest\", \"today\"", test: "technology",
+    when: t => NEWSY.test(t) || /\b(odis?|t20i?s?|ipl|cricket|match(es)?|scores?|vs\.?|versus|league|football|soccer|final|election|stock|price)\b/i.test(t),
+    async search(q, full) {
+      const jina = (u, ms) => getRaw("https://r.jina.ai/" + u, ms, { "X-Return-Format": "text" });
+      const host = u => { try { return new URL(u).hostname; } catch { return ""; } };
+      const xml = await jina(`https://www.bing.com/news/search?q=${enc(q)}&format=rss`, 12000);
+      if (/^\s*\{/.test(xml) && /"code"\s*:\s*4\d\d/.test(xml)) throw /429|rate/i.test(xml) ? new RateLimited() : new Error("blocked by reader");
+      const doc = new DOMParser().parseFromString(xml, "text/xml");
+      const items = [...doc.querySelectorAll("item")].map(it => {
+        const link = it.querySelector("link")?.textContent || "";
+        let url = link; try { url = new URL(link).searchParams.get("url") || link; } catch { }
+        const when = Date.parse(it.querySelector("pubDate")?.textContent || "");
+        return { title: strip(it.querySelector("title")?.textContent), desc: strip(it.querySelector("description")?.textContent), url, when,
+          src: strip(it.getElementsByTagName("News:Source")[0]?.textContent || "") };
+      }).filter(x => x.title && x.url);
+      if (!items.length) return [];
+      const top = items.slice(0, 6);
+      const day = t => t ? new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "date unknown";
+      const out = [{ title: `News headlines: ${q}`, url: `https://www.bing.com/news/search?q=${enc(q)}`,
+        text: top.map(x => `- (${day(x.when)}, ${x.src || host(x.url)}) ${x.title}. ${clip(x.desc, 220)}`).join("\n") }];
+      // Read the most relevant article in full (MSN/Bing pages can't be read, so skip those).
+      const pick = top.find(x => host(x.url) && !/(^|\.)(msn|bing)\.com$/i.test(host(x.url)));
+      if (pick && !state.webPicked) {
+        try {
+          const page = await jina(pick.url, 12000);
+          const body = page.replace(/^(Title|URL Source|Published Time|Markdown Content):.*$/gm, "").trim();
+          if (body.length > 400) out.push({ title: pick.title, url: pick.url, text: `${pick.src || ""} ${day(pick.when)}: ` + bestPassages(body, full || q, 4, 450) });
+        } catch (e) { console.warn("article read failed", e); }
+      }
+      return out;
+    } },
+  { id: "sports", tier: 3, name: "Sports results (Wikipedia)", what: "Match scores and results for cricket and football", limit: "No fixed limit (fair use)",
+    auto: "match, score, vs, ODI, T20, league…", test: "India New Zealand ODI",
+    when: t => /\b(odis?|t20i?s?|ipl|cricket|test match|match(es)?|scores?|scorecard|results?|won|beat|vs\.?|versus|fixtures?|series|tournament|world cup|league|football|soccer|final|cup)\b/i.test(t),
+    async search(q, full) {
+      const yr = new Date().getFullYear();
+      // Search with just the team names + year: wording like "versus … summary" confuses Wikipedia's search.
+      const words = q.split(" ");
+      const team = words.filter(w => !SPORT_NOISE.test(w)).join(" ");
+      const sport = words.find(w => /^(cricket|football|soccer)$/.test(w)) || "";
+      const searches = [...new Set([`${team} ${yr}`, `${team} ${sport} ${yr}`.replace(/\s+/g, " "), `${team} ${yr - 1}`])];
+      const lists = await Promise.all(searches.map(s => getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(s)}&srlimit=4&format=json&origin=*`)
+        .then(d => (d.query?.search || []).map(x => x.title)).catch(() => [])));
+      const titles = [...new Set(lists.flat())].slice(0, 6);
+      const want = /\bodi|one day/i.test(full) ? /ODI|One Day/i : /\bt20/i.test(full) ? /T20/i : /\btests?\b/i.test(full) ? /Test/ : null;
+      const pages = (await Promise.all(titles.map(async title => {
+        const p = await getJSON(`https://en.wikipedia.org/w/api.php?action=parse&page=${enc(title)}&prop=wikitext&formatversion=2&format=json&origin=*`).catch(() => null);
+        let ms = parseMatches(p?.parse?.wikitext || "");
+        if (want && ms.some(x => want.test(x.heading))) ms = ms.filter(x => want.test(x.heading));
+        return { title, ms };
+      }))).filter(p => p.ms.length);
+      // Keep only matches between the teams that were asked about (e.g. drops "India women" or "NZ vs England").
+      const rel = x => [x.team1, x.team2].filter(t => t && t.length > 1 && team.includes(t.toLowerCase())).length;
+      const best = Math.max(0, ...pages.flatMap(p => p.ms.map(rel)));
+      if (team && !best && pages.length > 2) return []; // nothing about these teams: better no result than a wrong one
+      return pages.map(p => {
+        const ms = best ? p.ms.filter(x => rel(x) >= best) : p.ms;
+        const played = ms.filter(x => x.result || x.score || x.score1), upcoming = ms.filter(x => !(x.result || x.score || x.score1));
+        const recent = played.slice(-6).reverse();
+        const lines = [...recent.map((x, i) => describeMatch(x, i === 0)), ...upcoming.slice(0, 1).map(x => describeMatch(x))];
+        return { title: p.title, url: `https://en.wikipedia.org/wiki/${enc(p.title.replace(/ /g, "_"))}`, latest: Math.max(0, ...played.map(x => Date.parse(x.date) || 0)),
+          text: "Most recent first (dates are local to the venue):\n" + lines.join("\n") };
+      }).filter(r => r.text.includes("(")).sort((a, b) => b.latest - a.latest).slice(0, 2);
+    } },
+  { id: "stackoverflow", tier: 3, name: "Stack Overflow", what: "Coding questions and answers", limit: "300 searches a day per user", daily: 300,
+    auto: "coding questions", test: "javascript array sort",
+    when: t => /\b(code|coding|error|bug|javascript|typescript|python|java|c\+\+|c#|css|html|sql|function|api|install|npm|pip|exception|compile|react|node|linux|git|regex|script|program)\b/i.test(t),
+    async search(q) {
+      const qs = await getJSON(`https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q=${enc(q)}&site=stackoverflow&pagesize=3&filter=withbody`);
+      srcState("stackoverflow").quota = qs.quota_remaining;
+      const items = qs.items || [];
+      if (!items.length) return [];
+      const ans = await getJSON(`https://api.stackexchange.com/2.3/questions/${items.map(i => i.question_id).join(";")}/answers?order=desc&sort=votes&site=stackoverflow&filter=withbody&pagesize=9`);
+      srcState("stackoverflow").quota = ans.quota_remaining;
+      return items.map(i => {
+        const best = (ans.items || []).find(a => a.question_id === i.question_id);
+        return { title: strip(i.title), url: i.link, text: `Question: ${clip(strip(i.body), 300)}\nTop answer: ${best ? clip(strip(best.body), 700) : "none yet"}` };
+      });
+    } },
+  { id: "hackernews", tier: 1.5, name: "Hacker News", what: "Tech, AI and startup discussions", limit: "No fixed limit (fair use)",
+    auto: "tech and AI topics", test: "webgpu",
+    when: t => /\b(ai|llm|startup|tech|software|programming|gpu|open.?source|launch(ed)?|apple|google|microsoft|openai|anthropic|nvidia|model)\b/i.test(t),
+    async search(q) {
+      const d = await getJSON(`https://hn.algolia.com/api/v1/search?query=${enc(q)}&tags=story&hitsPerPage=4`);
+      return (d.hits || []).map(h => ({ title: h.title, url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
+        text: `${h.title} (${h.points || 0} points, ${String(h.created_at || "").slice(0, 10)}) ${clip(strip(h.story_text), 300)}` }));
+    } },
+  { id: "openlibrary", tier: 3, name: "Open Library", what: "Books and authors", limit: "No fixed limit (fair use)",
+    auto: "books and authors", test: "dune",
+    when: t => /\b(book|books|novel|author|wrote|written by|isbn|published|reading list)\b/i.test(t),
+    async search(q) {
+      const d = await getJSON(`https://openlibrary.org/search.json?q=${enc(q)}&limit=4&fields=title,author_name,first_publish_year,key,subject`);
+      return (d.docs || []).map(b => ({ title: b.title, url: "https://openlibrary.org" + b.key,
+        text: `${b.title} by ${(b.author_name || ["unknown"]).slice(0, 2).join(", ")}, first published ${b.first_publish_year || "?"}. Topics: ${(b.subject || []).slice(0, 6).join(", ")}` }));
+    } },
+  { id: "weather", tier: 3, name: "Open-Meteo Weather", what: "Current weather and 3-day forecast (say \"weather in <city>\")", limit: "10,000 calls a day (non-commercial)",
+    auto: "weather questions", test: "weather in London",
+    when: t => /\b(weather|temperature|forecast|rain|snow|sunny|humid|wind)\b/i.test(t),
+    async search(_, full, plan) {
+      const m = (full || "").match(/\b(?:in|for|at)\s+([\p{Lu}][\p{L}.' -]*?)(?=\s+(?:today|tomorrow|this|now|right|next)\b|[?.!,]|$)/u);
+      const place = plan?.location || m?.[1]?.trim();
+      if (!place) return [];
+      const g = (await getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(place)}&count=1`)).results?.[0];
+      if (!g) return [];
+      const w = await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&timezone=auto&forecast_days=3`);
+      const c = w.current || {}, d = w.daily || {};
+      const days = (d.time || []).map((t, i) => `${t}: ${WMO[d.weather_code[i]] || "?"}, ${d.temperature_2m_min[i]}–${d.temperature_2m_max[i]}°C, rain chance ${d.precipitation_probability_max[i] ?? "?"}%`).join("; ");
+      return [{ title: `Weather in ${g.name}, ${g.country || ""}`, url: `https://open-meteo.com/en/docs?latitude=${g.latitude}&longitude=${g.longitude}`,
+        text: `Now (${c.time}): ${c.temperature_2m}°C, ${WMO[c.weather_code] || "?"}, wind ${c.wind_speed_10m} km/h. Forecast: ${days}` }];
+    } },
+  { id: "crossref", tier: 3, name: "Crossref", what: "Research papers and studies", limit: "No fixed limit (fair use)",
+    auto: "research and studies", test: "language models",
+    when: t => /\b(paper|papers|study|studies|research|journal|doi|scientific|evidence|clinical)\b/i.test(t),
+    async search(q) {
+      const d = await getJSON(`https://api.crossref.org/works?query=${enc(q)}&rows=3&select=title,author,issued,URL,abstract`);
+      return (d.message?.items || []).map(p => ({ title: strip((p.title || [""])[0]), url: p.URL,
+        text: `${strip((p.title || [""])[0])} — ${(p.author || []).slice(0, 3).map(a => a.family).join(", ")} (${p.issued?.["date-parts"]?.[0]?.[0] || "?"}). ${clip(strip(p.abstract), 500)}` }));
+    } },
+  { id: "reader", tier: 3, name: "Jina Reader", what: "Reads a web page when you paste its link", limit: "About 20 pages a minute without a key",
+    auto: "messages with a link", test: "https://example.com",
+    when: t => /https?:\/\/\S+/.test(t),
+    async search(_, full) {
+      const url = (full.match(/https?:\/\/[^\s)>\]]+/) || [])[0];
+      if (!url) return [];
+      const txt = await getRaw("https://r.jina.ai/" + url, 15000);
+      return [{ title: (txt.match(/^Title:\s*(.+)$/m) || [])[1] || url, url, text: clip(txt.replace(/^(Title|URL Source|Published Time):.*$/gm, "").trim(), 3500) }];
+    } },
+];
+
+function usable(d) {
+  const s = srcState(d.id);
+  if (!s.on) return false;
+  if (s.status === "down" && Date.now() - s.at < 30 * 60e3) return false;     // retry after 30 min
+  if (s.status === "limited" && Date.now() - s.at < 10 * 60e3) return false;  // cool down 10 min
+  if (d.daily && s.quota != null && s.quota <= 0) return false;
+  if (d.minGap && s.lastCall && Date.now() - s.lastCall < d.minGap) return false;
+  return true;
+}
+function srcColor(d) {
+  const s = srcState(d.id);
+  if (!s.on) return ["off", "Turned off"];
+  if (s.status === "down") return ["bad", `Not working (${s.note || "error"})${Date.now() - s.at < 30 * 60e3 ? ", will retry later" : ""}`];
+  if (s.status === "limited" && Date.now() - s.at < 10 * 60e3) return ["warn", "Rate-limited, available again in a few minutes"];
+  if (d.daily && s.quota != null) return [s.quota < d.daily * 0.2 ? "warn" : "ok", `${s.quota} of ${d.daily} free searches left today`];
+  if (s.status === "ok") return ["ok", "Available"];
+  return ["unk", "Not checked yet"];
+}
+
+const STOP = new Set(("what's who's where's how's when's it's a an the is are was were be been being am do does did what who whom whose which when where why how can could should would will shall may might must i me my we our you your he she it its they them their this that these those of in on at to for from with about as by and or but if then than so not no yes please tell explain give show find search look up know want need like just also any some more most much many very really there here hi hello hey").split(" "));
+function toQuery(t) {
+  const FILLER = /^(latest|news|today|tonight|current|currently|recent|recently|now|update|updates|right|happening|happened)$/;
+  const words = (t.replace(/https?:\/\/\S+/g, "").toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}'+#.-]*/gu) || [])
+    .filter(w => !STOP.has(w) && !FILLER.test(w) && !/^(vs\.?|v|yesterday|tonight|tomorrow)$/.test(w));
+  return words.slice(0, 8).join(" ") || t.slice(0, 80);
+}
+
+async function runSource(d, q, full, plan) {
+  const s = srcState(d.id); s.lastCall = Date.now();
+  try {
+    const items = await d.search(q, full, plan);
+    s.used = (s.used || 0) + 1; mark(d.id, "ok");
+    return items.filter(r => r.url && r.text).map(r => ({ ...r, source: d.name }));
+  } catch (e) {
+    console.warn(d.name, e); mark(d.id, e.rate ? "limited" : "down", e.message); return [];
+  }
+}
+// ---- Step 1: let the model understand the request and plan the search ----
+const TOPICS = ["sports", "news", "weather", "code", "books", "research", "link", "general"];
+const TOPIC_SOURCES = { sports: ["sports", "bingnews", "news"], news: ["bingnews", "news", "hackernews"], weather: ["weather"], code: ["stackoverflow", "hackernews"],
+  books: ["openlibrary"], research: ["crossref"], link: ["reader"], general: [] };
+function validPlan(p) {
+  if (!p || typeof p !== "object") return null;
+  const queries = (Array.isArray(p.queries) ? p.queries : []).filter(q => typeof q === "string" && q.trim()).map(q => q.trim().slice(0, 120)).slice(0, 2);
+  return { search: p.search !== false, topic: TOPICS.includes(p.topic) ? p.topic : "general", queries,
+    location: typeof p.location === "string" ? p.location.trim().slice(0, 60) : "" };
+}
+async function planSearch(c, text) {
+  const recent = c.messages.filter(m => !m.alt).slice(-5, -1)
+    .map(m => `${m.role === "user" ? "User" : "AI"}: ${m.content.replace(/\s+/g, " ").slice(0, 300)}`).join("\n");
+  const prompt = `Today is ${new Date().toDateString()}.\n` + (recent ? `Recent conversation:\n${recent}\n\n` : "") +
+    `New user message: "${text}"\n\n` +
+    `Work out what the user really wants, then plan a web lookup. Reply with JSON only, in this shape:\n` +
+    `{"search": true or false, "topic": "${TOPICS.join('" | "')}", "queries": ["..."], "location": ""}\n` +
+    `Rules:\n- "search" is false for greetings, creative writing, maths, translation, or anything that needs no facts.\n` +
+    `- "queries": 1 or 2 short search-engine queries. Use full names, never abbreviations (write "New Zealand", not "NZ"; "One Day International" or "ODI cricket", not just "odi"). ` +
+    `Resolve words like "it", "that match" or "yesterday" using the conversation and today's date. Add the year for recent events.\n` +
+    `- "location": the city for weather questions, otherwise "".`;
+  const schema = JSON.stringify({ type: "object", properties: { search: { type: "boolean" }, topic: { type: "string", enum: TOPICS },
+    queries: { type: "array", items: { type: "string" } }, location: { type: "string" } }, required: ["search", "topic", "queries", "location"] });
+  const ask = async withSchema => {
+    const r = await state.engine.chat.completions.create({ messages: [{ role: "user", content: prompt }], temperature: 0, max_tokens: 200,
+      ...(withSchema ? { response_format: { type: "json_object", schema } } : {}) });
+    const out = r.choices[0]?.message?.content || "";
+    return JSON.parse((out.match(/\{[\s\S]*\}/) || [out])[0]);
+  };
+  try { return validPlan(await ask(true)); } catch (e) { console.warn("plan (json mode) failed", e); }
+  try { return validPlan(await ask(false)); } catch (e) { console.warn("plan failed", e); }
+  try { // last try: just a rewritten search query, as plain text
+    const r = await state.engine.chat.completions.create({ temperature: 0, max_tokens: 40, messages: [{ role: "user", content:
+      `Today is ${new Date().toDateString()}.
+` + (recent ? `Recent conversation:
+${recent}
+
+` : "") +
+      `Rewrite this message as ONE short web search query. Expand all abbreviations into full names, resolve words like "it" or "yesterday", add the year for recent events. Reply with the query only.
+
+Message: "${text}"` }] });
+    const q = (r.choices[0]?.message?.content || "").split("\n")[0].replace(/^\s*(search query:|query:)?\s*["'`]*|["'`\s.]*$/gi, "").slice(0, 120);
+    if (q) return { search: true, topic: "auto", queries: [q], location: "" };
+  } catch (e) { console.warn("rewrite failed", e); }
+  return null; // fall back to plain keyword search
+}
+
+// ---- Step 2: search the sources that fit the plan ----
+async function webSearch(text, plan) {
+  let picks, queries;
+  if (plan && plan.topic === "auto") {
+    const both = text + " " + plan.queries.join(" ");
+    picks = SOURCES.filter(d => d.when(both) && usable(d));
+    if (picks.some(d => ["weather", "stackoverflow", "openlibrary", "crossref", "reader"].includes(d.id))) picks = picks.filter(d => d.id !== "news");
+    queries = plan.queries.map(toQuery).filter(Boolean);
+  } else if (plan) {
+    const want = new Set(TOPIC_SOURCES[plan.topic] || []);
+    if (!["weather", "link"].includes(plan.topic)) { want.add("web"); want.add("wikipedia"); want.add("duckduckgo"); }
+    if (plan.topic === "general" && NEWSY.test(text)) want.add("bingnews");
+    if (/https?:\/\/\S+/.test(text)) want.add("reader");
+    const both = text + " " + plan.queries.join(" ");
+    for (const d of SOURCES) if (d.tier >= 3 && d.id !== "reader" && d.when(both)) want.add(d.id); // e.g. "ODI" → sports, even if labelled "news"
+    picks = SOURCES.filter(d => want.has(d.id) && usable(d));
+    queries = [...new Set((plan.queries.length ? plan.queries : [text]).map(toQuery).filter(Boolean))].slice(0, 2);
+  } else {
+    picks = SOURCES.filter(d => d.when(text) && usable(d));
+    // A specialised source (weather, code, books, papers, a link) answers the question; skip the news feed then.
+    if (picks.some(d => ["weather", "stackoverflow", "openlibrary", "crossref", "reader"].includes(d.id))) picks = picks.filter(d => !["news", "bingnews", "web"].includes(d.id));
+    queries = [toQuery(text)];
+  }
+  const full = plan ? `${text} ${plan.queries.join(" ")}` : text;
+  state.webPicked = picks.some(d => d.id === "web");
+  const jobs = [];
+  for (const d of picks) for (const q of (["weather", "reader", "news", "bingnews", "web"].includes(d.id) ? queries.slice(0, 1) : queries)) jobs.push(runSource(d, q, full, plan));
+  const seen = new Set();
+  const flat = (await Promise.all(jobs)).flat().filter(r => { const k = r.url + "|" + r.text.slice(0, 80); if (seen.has(k)) return false; seen.add(k); return true; });
+  const terms = [...new Set(keyTerms(queries.join(" ")))], tierOf = Object.fromEntries(SOURCES.map(d => [d.name, d.tier || 1]));
+  const newsy = plan ? ["news", "sports"].includes(plan.topic) : /\b(news|latest|today|yesterday|this week|happen(ed|ing)?|headlines?)\b/i.test(text);
+  if (!newsy) tierOf["Wikipedia Current Events"] = 1;
+  const results = flat.map((r, i) => {
+    const hay = (r.title + " " + r.text).toLowerCase();
+    const cover = terms.length ? terms.filter(t => hay.includes(t)).length / terms.length : 1; // share of query words present
+    return { ...r, _t: tierOf[r.source], _s: cover + Math.min(scoreText(hay, terms), 20) / 100 - i * 0.001, _c: cover };
+  }).filter(r => r._t >= 2.5 || r._c >= (terms.length >= 2 ? 0.5 : 0.01)).sort((a, b) => b._t - a._t || b._s - a._s);
+  const direct = results.filter(r => r._t >= 2.5);
+  const final = direct.length ? [...direct, ...results.filter(r => r._t < 2.5).slice(0, 1)] : results; // direct answers + at most 1 background item
+  return { names: picks.map(p => p.name), queries, results: final };
+}
+function webContext(results, budget) {
+  const used = []; let out = "";
+  for (const r of results) {
+    const entry = `[${used.length + 1}] ${r.title} (${r.source}) ${r.url}\n${r.text}\n\n`;
+    if (out.length + entry.length > budget) { if (used.length) continue; }
+    out += entry.slice(0, budget); used.push({ title: r.title, url: r.url, source: r.source });
+    if (out.length >= budget) break;
+  }
+  return { text: out.trim(), used };
+}
+async function checkSources() {
+  $("srcCheck").disabled = true; $("srcCheck").textContent = "Checking…";
+  await Promise.all(SOURCES.filter(d => srcState(d.id).on).map(d => runSource(d, d.test, d.test)));
+  $("srcCheck").disabled = false; $("srcCheck").textContent = "Check availability now";
+}
+function renderSources() {
+  const box = $("srcList"); if (!box) return;
+  box.innerHTML = SOURCES.map(d => {
+    const s = srcState(d.id), [c, label] = srcColor(d);
+    return `<div class="card src">
+      <input type="checkbox" data-src="${d.id}" ${s.on ? "checked" : ""} aria-label="Use ${esc(d.name)}">
+      <div><div class="name"><span class="dot ${c}"></span>${esc(d.name)}</div>
+        <div class="small">${esc(d.what)}</div>
+        <div class="meta"><span class="tag ${c === "unk" || c === "off" ? "" : c}">${esc(label)}</span>
+          <span class="tag">Free: ${esc(d.limit)}</span><span class="tag">Used for: ${esc(d.auto)}</span>
+          <span class="tag">Used today: ${s.used || 0}</span></div></div></div>`;
+  }).join("");
+  box.querySelectorAll("[data-src]").forEach(cb => cb.onchange = () => { srcState(cb.dataset.src).on = cb.checked; saveSrc(); });
+}
+function showSources(wrap, list) {
+  const box = wrap.querySelector(".srcs"); if (!box || !list?.length) return;
+  box.innerHTML = "Sources: " + list.map((s, i) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">[${i + 1}] ${esc(clip(s.title, 50))}</a> <span>(${esc(s.source)})</span>`).join(" · ");
+}
+function setWeb(on) {
+  $("webOn").checked = on; $("webToggle").classList.toggle("on", on);
+  try { localStorage.setItem("freellm.web", on ? "1" : "0"); } catch { }
+  if (on && !SOURCES.some(d => srcState(d.id).status)) checkSources();
+}
+
+// ---------- Copy ----------
+async function copyText(text, btn) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch {
+    try { const t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select(); ok = document.execCommand("copy"); t.remove(); } catch { }
+  }
+  if (btn) { const old = btn.textContent; btn.textContent = ok ? "Copied ✓" : "Copy failed"; setTimeout(() => btn.textContent = old, 1500); }
+}
+
+// ---------- Listen: text-to-speech with Kokoro (82M, Apache-2.0), runs in the browser ----------
+// Voice model (Kokoro) also runs in its own background worker.
+const TTS_WORKER = `import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1/+esm";
+let tts = null;
+self.onmessage = async (e) => {
+  const { id, text, voice } = e.data;
+  try {
+    if (!tts) tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "q8", device: "wasm",
+      progress_callback: p => { if (p && p.status === "progress" && p.total) self.postMessage({ id, progress: Math.round(p.loaded / p.total * 100) }); } });
+    const a = await tts.generate(text, { voice });
+    self.postMessage({ id, audio: a.audio, rate: a.sampling_rate });
+  } catch (err) { self.postMessage({ id, error: String((err && err.message) || err) }); }
+};`;
+let ttsWorker = null; const ttsJobs = new Map();
+function ttsGenerate(text, voice, onProgress) {
+  if (!ttsWorker) {
+    ttsWorker = moduleWorker(TTS_WORKER);
+    ttsWorker.onmessage = e => {
+      const job = ttsJobs.get(e.data.id); if (!job) return;
+      if (e.data.progress != null) return job.onProgress?.(e.data.progress);
+      ttsJobs.delete(e.data.id);
+      e.data.error ? job.reject(new Error(e.data.error)) : job.resolve(e.data);
+    };
+    ttsWorker.onerror = e => { for (const j of ttsJobs.values()) j.reject(new Error(e.message || "voice worker failed")); ttsJobs.clear(); ttsWorker = null; };
+  }
+  return new Promise((resolve, reject) => { const id = uid(); ttsJobs.set(id, { resolve, reject, onProgress }); ttsWorker.postMessage({ id, text, voice }); });
+}
+function speakableText(md) {
+  return md.replace(/```[\s\S]*?```/g, " (code block) ").replace(/`([^`]+)`/g, "$1")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_#>|~]+/g, " ").replace(/\s+/g, " ").trim();
+}
+function splitSentences(text, max = 280) {
+  const parts = text.match(/[^.!?\n]+[.!?]*\s*/g) || [text], out = [];
+  let cur = "";
+  for (const p of parts) {
+    if ((cur + p).length > max && cur) { out.push(cur.trim()); cur = ""; }
+    if (p.length > max) { for (let i = 0; i < p.length; i += max) out.push(p.slice(i, i + max)); } else cur += p;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) { const x = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([buf], { type: "audio/wav" });
+}
+// Shows any generated file (audio now, images later) with a download button.
+function showMedia(wrap, blob, kind, filename) {
+  const url = URL.createObjectURL(blob), box = wrap.querySelector(".media");
+  box.innerHTML = (kind === "audio" ? `<audio controls src="${url}"></audio>` : `<img src="${url}" alt="Generated image">`) +
+    `<button type="button" data-act="download" title="Download">⬇ Download</button>`;
+  box.querySelector("[data-act=download]").onclick = () => {
+    const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  };
+  if (kind === "audio") box.querySelector("audio").play().catch(() => { });
+}
+async function listen(wrap, btn) {
+  const bubble = wrap.querySelector(".msg"), text = speakableText(bubble._raw || "");
+  if (!text || btn.disabled) return;
+  const status = s => btn.textContent = s;
+  btn.disabled = true;
+  try {
+    const chunks = splitSentences(text), pieces = []; let rate = 24000;
+    status("Loading voice…");
+    for (let i = 0; i < chunks.length; i++) {
+      if (i || ttsWorker) status(`Making audio… ${i + 1}/${chunks.length}`);
+      const a = await ttsGenerate(chunks[i], $("voice").value, pct => status(`Downloading voice model (one time)… ${pct}%`));
+      pieces.push(a.audio); rate = a.rate || rate;
+    }
+    const all = new Float32Array(pieces.reduce((n, p) => n + p.length, 0));
+    let o = 0; for (const p of pieces) { all.set(p, o); o += p.length; }
+    showMedia(wrap, encodeWav(all, rate), "audio", "freellm-reply.wav");
+    status("🔊 Listen again");
+  } catch (e) { console.error(e); status("Audio failed. Tap to retry"); }
+  btn.disabled = false;
+}
+
+// One click handler for all reply buttons (copy / listen / code copy)
+$("msgs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.classList.contains("codecopy")) return copyText(b.nextElementSibling?.textContent || "", b);
+  const wrap = b.closest(".awrap"); if (!wrap) return;
+  if (b.dataset.act === "copy") copyText(wrap.querySelector(".msg")._raw || wrap.querySelector(".msg").innerText, b);
+  if (b.dataset.act === "listen") listen(wrap, b);
+});
+
+// ---------- Export / import ----------
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+const safeName = s => (s || "chat").replace(/[^\w\- ]+/g, "").trim().slice(0, 40) || "chat";
+function exportChats(list, name) {
+  download(name, JSON.stringify({ app: "FreeLLM", version: 1, exported: new Date().toISOString(), memory: state.memory.text, chats: list }, null, 2), "application/json");
+}
+function exportMarkdown(c) {
+  const md = `# ${c.title}\n\n_Exported from FreeLLM on ${new Date().toLocaleString()}${c.modelId ? ` · model: ${c.modelId}` : ""}_\n\n` +
+    (c.docs.length ? `**Attached documents:** ${c.docs.map(d => d.name).join(", ")}\n\n` : "") +
+    c.messages.map(m => `**${m.role === "user" ? "You" : "AI" + (m.model ? ` (${prettyName(m.model)})` : "")}:**\n\n${m.content}\n` +
+      (m.sources?.length ? `\nSources: ${m.sources.map((s, i) => `[${i + 1}] [${s.title}](${s.url})`).join(", ")}\n` : "")).join("\n---\n\n");
+  download(safeName(c.title) + ".md", md, "text/markdown");
+}
+async function importChats(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    let list = Array.isArray(data) ? data : data.chats || (data.messages ? [data] : []);
+    list = list.filter(c => Array.isArray(c.messages)).map(c => ({
+      id: uid(), title: "(imported) " + (c.title || "Chat"), created: c.created || Date.now(), updated: Date.now(),
+      modelId: c.modelId, docs: Array.isArray(c.docs) ? c.docs : [],
+      messages: c.messages.filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string"),
+    }));
+    if (!list.length) throw new Error("no chats found in this file");
+    if (data.memory && !state.memory.text.includes(data.memory)) {
+      state.memory.text = (state.memory.text + "\n" + data.memory).trim(); store.save(MEM_KEY, state.memory);
+    }
+    state.chats.unshift(...list); persist(); openChat(list[0].id);
+    systemNote(`Imported ${list.length} chat${list.length > 1 ? "s" : ""}. Keep chatting and the AI will see this conversation.`);
+  } catch (e) { systemNote("Import failed: " + (e?.message || e)); }
+}
+
+// ---------- Memory ----------
+async function rememberChat() {
+  const c = chat();
+  if (!state.engine || !state.primaryId) return systemNote("Load a model first. It's needed to summarize the chat.");
+  if (!c?.messages.length || state.generating) return;
+  state.generating = true; setChatEnabled(false);
+  try { if (state.activeId !== state.primaryId) await loadIntoEngine(state.primaryId); } catch { }
+  systemNote("Summarizing this chat into memory…");
+  try {
+    const transcript = c.messages.map(m => `${m.role === "user" ? "User" : "AI"}: ${m.content}`).join("\n").slice(-contextChars() * 0.6);
+    const r = await state.engine.chat.completions.create({ temperature: 0.2, messages: [
+      { role: "system", content: "You write short memory notes." },
+      { role: "user", content: `From this conversation, list up to 6 short bullet points worth remembering for future chats: facts about the user, their goals, preferences, and decisions. Only bullets, nothing else.\n\n${transcript}` },
+    ] });
+    const notes = (r.choices[0]?.message?.content || "").trim();
+    if (notes) {
+      state.memory.text = (state.memory.text + `\n\n[${new Date().toLocaleDateString()} · ${c.title}]\n${notes}`).trim();
+      store.save(MEM_KEY, state.memory);
+      systemNote("Saved to memory. Open \"Memory…\" to review or edit it.");
+    }
+  } catch (e) { systemNote("Couldn't summarize: " + (e?.message || e)); }
+  state.generating = false; setChatEnabled(true);
+}
+function toggleMemoryBox(show) {
+  $("memoryBox").hidden = !show;
+  if (show) { $("memoryText").value = state.memory.text; $("memoryOn").checked = state.memory.on; }
+}
+
+// ---------- Wire up ----------
+$("search").oninput = renderModels;
+$("onlyFit").onchange = renderModels;
+$("onlyCached").onchange = renderModels;
+$("maxMem").oninput = () => { updateMaxLabel(); renderModels(); };
+$("dlSelected").onclick = () => downloadModels([...state.selected]);
+$("activeModel").onchange = e => activate(e.target.value);
+$("newChat").onclick = () => { if (!state.generating) newChat(); };
+$("chatList").onchange = e => { if (!state.generating) openChat(e.target.value); else renderChatList(); };
+$("menuBtn").onclick = () => { $("menu").hidden = !$("menu").hidden; };
+$("exportJson").onclick = () => { const c = chat(); if (c) exportChats([c], safeName(c.title) + ".json"); };
+$("exportMd").onclick = () => { const c = chat(); if (c) exportMarkdown(c); };
+$("exportAll").onclick = () => exportChats(state.chats, `freellm-chats-${new Date().toISOString().slice(0, 10)}.json`);
+$("importFile").onchange = e => { const f = e.target.files[0]; if (f) importChats(f); e.target.value = ""; };
+$("rememberBtn").onclick = rememberChat;
+$("memoryBtn").onclick = () => toggleMemoryBox($("memoryBox").hidden);
+$("memoryClose").onclick = () => toggleMemoryBox(false);
+$("memorySave").onclick = () => {
+  state.memory = { text: $("memoryText").value, on: $("memoryOn").checked };
+  store.save(MEM_KEY, state.memory); toggleMemoryBox(false); systemNote("Memory saved.");
+};
+$("deleteChat").onclick = e => {
+  const b = e.currentTarget;
+  if (!b.dataset.confirm) { b.dataset.confirm = "1"; b.textContent = "Tap again to delete"; setTimeout(() => { delete b.dataset.confirm; b.textContent = "Delete this chat"; }, 4000); return; }
+  delete b.dataset.confirm; b.textContent = "Delete this chat";
+  state.chats = state.chats.filter(c => c.id !== state.chatId); persist();
+  state.chats.length ? openChat(state.chats[0].id) : newChat();
+};
+$("attach").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; if (fs.length) attachFiles(fs); };
+$("msgs").ondragover = e => e.preventDefault();
+$("msgs").ondrop = e => { e.preventDefault(); if (e.dataTransfer.files.length) attachFiles([...e.dataTransfer.files]); };
+$("stopBtn").onclick = () => { state.stopRequested = true; try { state.engine?.interruptGenerate(); } catch { } };
+$("compareOn").onchange = () => { if ($("compareOn").checked && !$("compareModel").value) { const o = $("compareModel").options[1]; if (o) $("compareModel").value = o.value; } };
+$("compareModel").onchange = () => { $("compareOn").checked = !!$("compareModel").value; };
+$("composer").onsubmit = e => { e.preventDefault(); const t = $("input").value.trim(); if (!t) return; $("input").value = ""; send(t); };
+$("input").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("composer").requestSubmit(); } };
+
+try { const v = localStorage.getItem("freellm.voice"); if (v) $("voice").value = v; } catch { }
+$("voice").onchange = () => { try { localStorage.setItem("freellm.voice", $("voice").value); } catch { } };
+$("webToggle").onclick = e => { e.preventDefault(); setWeb(!$("webOn").checked); };
+$("srcCheck").onclick = checkSources;
+try { if (localStorage.getItem("freellm.plan") === "0") $("planOn").checked = false; } catch { }
+$("planOn").onchange = () => { try { localStorage.setItem("freellm.plan", $("planOn").checked ? "1" : "0"); } catch { } };
+renderSources();
+try { if (localStorage.getItem("freellm.web") === "1") setWeb(true); } catch { }
+state.chats.sort((a, b) => b.updated - a.updated);
+state.chats.length ? openChat(state.chats[0].id) : newChat();
+renderTiers();
+await detectDevice();
+await loadModelList();
+setChatEnabled(false);
+// Re-open the model used last time, so the chat is ready without extra clicks.
+try {
+  const last = localStorage.getItem("freellm.lastModel");
+  if (last && state.cached.has(last) && state.device.webgpu) { $("ptext").textContent = `Loading ${prettyName(last)}…`; activate(last); }
+} catch { }
+</script>
+</body>
+</html>
