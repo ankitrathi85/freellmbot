@@ -2,10 +2,12 @@
 
 **A free, private AI chatbot that runs entirely in your browser. No servers, no accounts and no API keys.**
 
-🔗 **Live demo:** https://ankitrathi85.github.io/freellm/
+🔗 **Live demo:** https://ankitrathi85.github.io/freellmbot/
 
+<!-- Screenshot: once the site is live, save a screenshot or GIF of a real chat as docs/screenshot.png,
+     then remove these comment markers around the line below.
 ![FreeLLM screenshot](docs/screenshot.png)
-<!-- TODO: add a screenshot or short GIF at docs/screenshot.png -->
+-->
 
 FreeLLM downloads open-source language models (Llama, Qwen, Phi, Gemma, Mistral and more) into your browser once, then runs them on your own GPU with WebGPU. Your chats, memory and attached files stay on your device. The whole app is a single static `index.html` file hosted for free on GitHub Pages.
 
@@ -34,7 +36,7 @@ flowchart LR
     UI <--> LS[("localStorage<br/>chats, memory")]
     W <--> CS[("Cache Storage<br/>model files")]
   end
-  HF["Hugging Face<br/>(mlc-ai)"] -. "one-time download" .-> CS
+  HF["Hugging Face (weights)<br/>GitHub (runtime files)"] -. "one-time download" .-> CS
 ```
 
 **Web lookup (only when 🌐 is on):**
@@ -56,9 +58,9 @@ flowchart LR
 
 | Stays on your device | Leaves your device |
 |---|---|
-| Your chats and chat history | Model and library downloads (from Hugging Face and jsDelivr) |
+| Your chats and chat history | **Always (downloads only):** model weights and the voice model from Hugging Face, each model's small runtime file from GitHub (`raw.githubusercontent.com/mlc-ai`), and the app's libraries from jsDelivr. These are plain file downloads; nothing about you or your chats is sent. |
 | Attached files and their text | **Only when 🌐 is on:** the search query, sent to the web sources listed below |
-| Memory notes | The address of any link you paste (read through Jina Reader) |
+| Memory notes | **Only when 🌐 is on:** the address of any link you paste in a message (read through Jina Reader) |
 | Voice audio | |
 | All AI processing | |
 
@@ -93,10 +95,10 @@ The VS Code **Live Server** extension works too.
 
 ## Deploy to GitHub Pages
 
-1. Create a public repo named `freellm` on GitHub and push `index.html`, `README.md` and `LICENSE` to the `main` branch.
+1. Create a public repo named `freellmbot` on GitHub and push `index.html`, `README.md` and `LICENSE` to the `main` branch.
 2. In the repo, go to **Settings → Pages**.
 3. Under **Build and deployment**, choose **Source: Deploy from a branch**, **Branch: `main`**, folder **`/ (root)`**, and save.
-4. After a minute or two, the site is live at `https://ankitrathi85.github.io/freellm/`.
+4. After a minute or two, the site is live at `https://ankitrathi85.github.io/freellmbot/`.
 
 There is no build step. Every push to `main` redeploys the site. Keep the URL stable, because changing it means users have to download their models again.
 
@@ -143,6 +145,7 @@ Model files are converted by MLC AI and downloaded from [Hugging Face (mlc-ai)](
 | [Together AI](https://huggingface.co/togethercomputer) | RedPajama | Apache-2.0 |
 | [Stability AI](https://huggingface.co/stabilityai) | StableLM | Varies (some are non-commercial) |
 | [WizardLM](https://huggingface.co/WizardLMTeam) | WizardMath | Follows the base model |
+| [Allen Institute for AI (Ai2)](https://huggingface.co/allenai) | OLMo | Apache-2.0 |
 
 The model list comes live from WebLLM, so models may be added or removed over time.
 

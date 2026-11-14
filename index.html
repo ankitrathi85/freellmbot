@@ -94,6 +94,29 @@
   .srcs a{color:var(--accent);text-decoration:none}
   footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
   a{color:var(--accent)}
+  /* Make the hidden attribute always win (otherwise .menu{display:flex} keeps the "More" menu open). */
+  [hidden]{display:none!important}
+  /* Let long links and words wrap instead of stretching the whole page sideways. */
+  main>*{min-width:0}
+  /* Desktop: library on the left, chat on the right (the chat is first in the HTML). */
+  main>.side{grid-column:1;grid-row:1}
+  main>.chat{grid-column:2;grid-row:1}
+  .msg,.srcs,.ptext{overflow-wrap:anywhere}
+  .mobile-only{display:none}
+  /* Phones and small tablets: one column, chat first so people don't scroll past the whole library to talk. */
+  @media (max-width:900px){
+    main{padding:10px;gap:12px}
+    main>.chat,main>.side{grid-column:auto;grid-row:auto}
+    .mobile-only{display:inline-block}
+    header{padding:12px 14px}
+  }
+  @media (max-width:600px){
+    /* iPhone zooms the page when you tap a field with text under 16px, so keep fields at 16px. */
+    input[type=text],textarea,select{font-size:16px}
+    .panel{padding:12px}
+    .msg{max-width:94%}
+    .awrap{max-width:94%}
+  }
 </style>
 </head>
 <body>
@@ -106,63 +129,12 @@
 </header>
 
 <main>
-  <!-- LEFT: device + model library -->
-  <section>
-    <div class="panel">
-      <h2>Your device</h2>
-      <div class="device" id="device">
-        <div><span class="small">WebGPU</span><b id="dGpu">Checking…</b></div>
-        <div><span class="small">Fast math (f16)</span><b id="dF16">…</b></div>
-        <div><span class="small">Device memory</span><b id="dRam">…</b></div>
-        <div><span class="small">Free storage</span><b id="dStore">…</b></div>
-      </div>
-      <div id="gpuBanner"></div>
-    </div>
-
-    <div class="panel" style="margin-top:16px">
-      <h2>Model library</h2>
-      <input type="text" id="search" placeholder="Search models (e.g. Llama, Qwen, Phi, Gemma)">
-      <div class="chips" id="tiers"></div>
-      <label class="row" for="maxMem">Max memory I want to use: <b id="maxMemLabel" style="color:var(--text)"></b></label>
-      <input type="range" id="maxMem" min="500" max="24000" step="250">
-      <label class="row"><input type="checkbox" id="onlyFit" checked> Only show models my device can probably run</label>
-      <label class="row"><input type="checkbox" id="onlyCached"> Only show downloaded models</label>
-      <div class="actions">
-        <button class="primary" id="dlSelected" disabled>Download selected (0)</button>
-        <span class="small" id="countLabel" style="align-self:center"></span>
-      </div>
-      <div class="progress" id="progress">
-        <div class="bar"><i id="pbar"></i></div>
-        <div class="ptext" id="ptext"></div>
-      </div>
-      <div class="models" id="models"><div class="small">Loading model list…</div></div>
-    </div>
-
-    <div class="panel" style="margin-top:16px">
-      <h2>Web sources · free, no sign-up</h2>
-      <div class="small" style="line-height:1.6">Tap 🌐 next to the message box to let the AI look things up. Only your question is sent to these sources, never your chat or files.
-        <br><span class="dot ok"></span>available <span class="dot warn" style="margin-left:8px"></span>limited right now <span class="dot bad" style="margin-left:8px"></span>not working <span class="dot" style="margin-left:8px"></span>not checked yet</div>
-      <label class="row"><input type="checkbox" id="planOn" checked> Think before searching: the AI first works out what to look up (smarter, a few seconds slower)</label>
-      <div class="models" id="srcList" style="max-height:none"></div>
-      <div class="actions"><button id="srcCheck">Check availability now</button></div>
-    </div>
-
-    <div class="panel" style="margin-top:16px">
-      <h2>Where models come from</h2>
-      <div class="small" style="line-height:1.6">
-        <b>Model list:</b> the official catalog of <a href="https://github.com/mlc-ai/web-llm" target="_blank" rel="noopener">WebLLM</a> by the MLC AI team. It loads the newest version every time you open this page, so new models appear when WebLLM adds them.<br>
-        <b>Model files:</b> downloaded straight from <a href="https://huggingface.co/mlc-ai" target="_blank" rel="noopener">Hugging Face (mlc-ai)</a>, converted from the makers' official releases.<br>
-        <b>Original makers:</b> <span id="vendorList">…</span>.<br>
-        Each model has its own license. Tap "Source &amp; license" on a model to read it. This site doesn't host, change or train any model.
-      </div>
-    </div>
-  </section>
-
-  <!-- RIGHT: chat -->
-  <section class="panel chat">
+  <!-- Chat comes first in the page order (phones show it first; desktop puts it on the right with CSS) -->
+  <section class="panel chat" id="chatPanel">
     <div class="chathead">
       <span class="small">Model</span>
       <select id="activeModel"><option value="">No model loaded. Download one first.</option></select>
+      <button type="button" id="toLibrary" class="mobile-only">📚 Models</button>
     </div>
     <div class="chathead" style="margin-top:8px">
       <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap"><input type="checkbox" id="compareOn"> Compare with</label>
@@ -214,6 +186,58 @@
       <button id="stopBtn" type="button" style="display:none">Stop</button>
     </form>
   </section>
+
+  <!-- LEFT: device + model library -->
+  <section class="side">
+    <div class="panel">
+      <h2>Your device</h2>
+      <div class="device" id="device">
+        <div><span class="small">WebGPU</span><b id="dGpu">Checking…</b></div>
+        <div><span class="small">Fast math (f16)</span><b id="dF16">…</b></div>
+        <div><span class="small">Device memory</span><b id="dRam">…</b></div>
+        <div><span class="small">Free storage</span><b id="dStore">…</b></div>
+      </div>
+      <div id="gpuBanner"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px" id="library">
+      <h2>Model library</h2>
+      <input type="text" id="search" placeholder="Search models (e.g. Llama, Qwen, Phi, Gemma)">
+      <div class="chips" id="tiers"></div>
+      <label class="row" for="maxMem">Max memory I want to use: <b id="maxMemLabel" style="color:var(--text)"></b></label>
+      <input type="range" id="maxMem" min="500" max="24000" step="250">
+      <label class="row"><input type="checkbox" id="onlyFit" checked> Only show models my device can probably run</label>
+      <label class="row"><input type="checkbox" id="onlyCached"> Only show downloaded models</label>
+      <div class="actions">
+        <button class="primary" id="dlSelected" disabled>Download selected (0)</button>
+        <span class="small" id="countLabel" style="align-self:center"></span>
+      </div>
+      <div class="progress" id="progress">
+        <div class="bar"><i id="pbar"></i></div>
+        <div class="ptext" id="ptext"></div>
+      </div>
+      <div class="models" id="models"><div class="small">Loading model list…</div></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Web sources · free, no sign-up</h2>
+      <div class="small" style="line-height:1.6">Tap 🌐 next to the message box to let the AI look things up. Only your question is sent to these sources, never your chat or files.
+        <br><span class="dot ok"></span>available <span class="dot warn" style="margin-left:8px"></span>limited right now <span class="dot bad" style="margin-left:8px"></span>not working <span class="dot" style="margin-left:8px"></span>not checked yet</div>
+      <label class="row"><input type="checkbox" id="planOn" checked> Think before searching: the AI first works out what to look up (smarter, a few seconds slower)</label>
+      <div class="models" id="srcList" style="max-height:none"></div>
+      <div class="actions"><button id="srcCheck">Check availability now</button></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Where models come from</h2>
+      <div class="small" style="line-height:1.6">
+        <b>Model list:</b> the official catalog of <a href="https://github.com/mlc-ai/web-llm" target="_blank" rel="noopener">WebLLM</a> by the MLC AI team. It loads the newest version every time you open this page, so new models appear when WebLLM adds them.<br>
+        <b>Model files:</b> downloaded straight from <a href="https://huggingface.co/mlc-ai" target="_blank" rel="noopener">Hugging Face (mlc-ai)</a>, converted from the makers' official releases.<br>
+        <b>Original makers:</b> <span id="vendorList">…</span>.<br>
+        Each model has its own license. Tap "Source &amp; license" on a model to read it. This site doesn't host, change or train any model.
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -221,9 +245,9 @@
   Answers can be wrong, so check anything important.
   <div style="margin-top:6px">
     Made by Ankit Rathi ·
-    <a href="https://github.com/ankitrathi85/freellm" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://github.com/ankitrathi85/freellmbot" target="_blank" rel="noopener">GitHub</a> ·
     <a href="https://www.linkedin.com/in/ankitrathi85/" target="_blank" rel="noopener">LinkedIn</a> ·
-    <a href="https://github.com/ankitrathi85/freellm#credits" target="_blank" rel="noopener">Credits &amp; licences</a>
+    <a href="https://github.com/ankitrathi85/freellmbot#credits" target="_blank" rel="noopener">Credits &amp; licences</a>
   </div>
 </footer>
 
@@ -268,6 +292,7 @@ const VENDORS = [
   [/^redpajama/i, "Together AI"],
   [/^stablelm/i, "Stability AI"],
   [/^wizard/i, "WizardLM"],
+  [/^olmo/i, "Allen Institute for AI (Ai2)"],
 ];
 function vendor(id) { const v = VENDORS.find(([re]) => re.test(id)); return v ? v[1] : "Community"; }
 function sourceUrl(m) { return /^https:\/\//.test(m.model || "") ? m.model : `https://huggingface.co/mlc-ai/${m.model_id}`; }
@@ -491,6 +516,7 @@ async function downloadModels(ids) {
     state.primaryId = state.activeId; rememberModel(state.primaryId);
     $("ptext").textContent = `Done! ${prettyName(state.activeId)} is ready to chat.`;
     systemNote(`Loaded ${prettyName(state.activeId)}. Say hi!`);
+    showChatOnMobile();
   } catch (e) {
     console.error(e);
     $("ptext").textContent = "Download failed: " + (e?.message || e) + ". The model may be too big for this device. Try a smaller one.";
@@ -500,11 +526,19 @@ async function downloadModels(ids) {
 }
 
 function rememberModel(id) { try { localStorage.setItem("freellm.lastModel", id); } catch { } }
-async function activate(id) {
+// Scroll to a panel, without animation for people who asked their device for less motion.
+function scrollToPanel(el) {
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+}
+// On phones the library sits below the chat, so jump back to the chat once a model is ready.
+function showChatOnMobile() { if (matchMedia("(max-width:900px)").matches) scrollToPanel($("chatPanel")); }
+// auto = true when the app reloads the last model on startup: don't scroll the page then.
+async function activate(id, auto = false) {
   if (!id || state.busy || state.generating) return;
-  if (id === state.activeId) { state.primaryId = id; renderActiveSelect(); renderModels(); setChatEnabled(true); return; }
+  if (id === state.activeId) { state.primaryId = id; renderActiveSelect(); renderModels(); setChatEnabled(true); if (!auto) showChatOnMobile(); return; }
   setBusy(true);
-  try { await loadIntoEngine(id); state.primaryId = id; rememberModel(id); $("ptext").textContent = `${prettyName(id)} is ready.`; systemNote(`Switched to ${prettyName(id)}.`); }
+  try { await loadIntoEngine(id); state.primaryId = id; rememberModel(id); $("ptext").textContent = `${prettyName(id)} is ready.`; systemNote(`Switched to ${prettyName(id)}.`); if (!auto) showChatOnMobile(); }
   catch (e) { $("ptext").textContent = "Couldn't load: " + (e?.message || e); }
   renderActiveSelect(); setBusy(false);
 }
@@ -1510,6 +1544,7 @@ $("activeModel").onchange = e => activate(e.target.value);
 $("newChat").onclick = () => { if (!state.generating) newChat(); };
 $("chatList").onchange = e => { if (!state.generating) openChat(e.target.value); else renderChatList(); };
 $("menuBtn").onclick = () => { $("menu").hidden = !$("menu").hidden; };
+$("toLibrary").onclick = () => scrollToPanel($("library"));
 $("exportJson").onclick = () => { const c = chat(); if (c) exportChats([c], safeName(c.title) + ".json"); };
 $("exportMd").onclick = () => { const c = chat(); if (c) exportMarkdown(c); };
 $("exportAll").onclick = () => exportChats(state.chats, `freellm-chats-${new Date().toISOString().slice(0, 10)}.json`);
@@ -1554,7 +1589,7 @@ setChatEnabled(false);
 // Re-open the model used last time, so the chat is ready without extra clicks.
 try {
   const last = localStorage.getItem("freellm.lastModel");
-  if (last && state.cached.has(last) && state.device.webgpu) { $("ptext").textContent = `Loading ${prettyName(last)}…`; activate(last); }
+  if (last && state.cached.has(last) && state.device.webgpu) { $("ptext").textContent = `Loading ${prettyName(last)}…`; activate(last, true); }
 } catch { }
 </script>
 </body>
